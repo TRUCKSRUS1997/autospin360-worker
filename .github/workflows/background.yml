@@ -1,0 +1,56 @@
+name: Apply backgrounds
+
+# Started by AutoSpin360 when the dealer taps "Apply to spin" with "Do it in the background",
+# plus an hourly safety check in case a start signal was missed.
+on:
+  repository_dispatch:
+    types: [bg-job]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+# one worker at a time; a second start waits, then finds the queue already empty
+concurrency:
+  group: bg-worker
+  cancel-in-progress: false
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      SITE_URL: https://autospin360.vercel.app
+      BG_WORKER_KEY: ${{ secrets.BG_WORKER_KEY }}
+      MODEL_DIR: ${{ github.workspace }}/models
+    steps:
+      - name: Anything to do?
+        id: queue
+        run: |
+          body=$(curl -s -H "x-worker-key: $BG_WORKER_KEY" "$SITE_URL/api/background?next=1")
+          echo "$body" | grep -q '"id"' && echo "work=yes" >> "$GITHUB_OUTPUT" || echo "Nothing waiting."
+
+      - uses: actions/checkout@v4
+        if: steps.queue.outputs.work == 'yes'
+
+      - uses: actions/setup-python@v5
+        if: steps.queue.outputs.work == 'yes'
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Keep the AI models between runs
+        if: steps.queue.outputs.work == 'yes'
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: models-v1
+
+      - name: Install
+        if: steps.queue.outputs.work == 'yes'
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Apply backgrounds
+        if: steps.queue.outputs.work == 'yes'
+        run: python worker.py
