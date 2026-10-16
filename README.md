@@ -9,4 +9,6 @@ dealer taps **Apply to spin**, so the admin app doesn't need to stay open.
 - Only code lives here. Photos are read from and written back to the site; nothing is stored in
   this repository.
 
-Secret needed: `BG_WORKER_KEY` (same value as on Vercel).
+Works for every dealership on the site.
+
+Secret needed: `BG_WORKER_KEY` (same value as the `BG_WORKER_KEY` secret on Cloudflare).

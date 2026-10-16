@@ -19,14 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
-      SITE_URL: https://autospin360.vercel.app
+      SITE_URL: https://autospin360.v24svb75kp.workers.dev
       BG_WORKER_KEY: ${{ secrets.BG_WORKER_KEY }}
       MODEL_DIR: ${{ github.workspace }}/models
     steps:
       - name: Anything to do?
         id: queue
         run: |
-          body=$(curl -s -H "x-worker-key: $BG_WORKER_KEY" "$SITE_URL/api/background?next=1")
+          body=$(curl -s -H "x-worker-key: $BG_WORKER_KEY" "$SITE_URL/api/_bgnext")
           echo "$body" | grep -q '"id"' && echo "work=yes" >> "$GITHUB_OUTPUT" || echo "Nothing waiting."
 
       - uses: actions/checkout@v4

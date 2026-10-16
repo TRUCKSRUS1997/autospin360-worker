@@ -10,9 +10,13 @@ Picks up "apply background" jobs queued by the dealer admin, so the dealer can c
 Started by the site (a "repository dispatch" when the dealer taps Apply) and by an hourly safety
 check. Each run works through every waiting job, then stops.
 
+Works for every dealership on the site: it asks /api/_bgnext for the oldest waiting job across all
+dealerships, then does that job inside the job's own dealership address, so it only ever touches
+that dealership's photos and draws that dealership's name, colour and logo on the branded background.
+
 Settings (repository secrets / environment):
-  BG_WORKER_KEY  shared secret, same value as the BG_WORKER_KEY env var on Vercel
-  SITE_URL       the site, default https://autospin360.vercel.app
+  BG_WORKER_KEY  shared secret, same value as the BG_WORKER_KEY secret on Cloudflare
+  SITE_URL       the site, default https://autospin360.v24svb75kp.workers.dev
   MODEL_DIR      where the AI models are kept between runs (cached by the workflow)
 """
 import base64
@@ -29,9 +33,8 @@ import requests
 from onnx import TensorProto, numpy_helper
 from PIL import Image, ImageOps
 
-SITE = os.environ.get("SITE_URL", "https://autospin360.vercel.app").rstrip("/")
+SITE = os.environ.get("SITE_URL", "https://autospin360.v24svb75kp.workers.dev").rstrip("/")
 KEY = os.environ.get("BG_WORKER_KEY", "")
-API = SITE + "/api/background"
 HDR = {"x-worker-key": KEY}
 S = 1024
 MEAN = np.array([0.485, 0.456, 0.406], np.float32)
@@ -133,6 +136,7 @@ def cutout(url, key):
 
 # ---------------------------------------------------------------- one job
 PAGE = """<!doctype html><meta charset="utf-8"><body>
+<script>window.DEALER = {dealer};</script>
 <script src="{site}/photo-tools.js"></script><script src="{site}/bg-studio.js"></script>"""
 
 RUN = """async ({ job, urls }) => {
@@ -155,7 +159,12 @@ RUN = """async ({ job, urls }) => {
 
 def process(job):
     from playwright.sync_api import sync_playwright
+    import json
 
+    # every request for this job goes to the job's own dealership address
+    base = SITE + (job.get("base") or "")
+    API = base + "/api/background"
+    dealer = job.get("dealerInfo") or {}
     vid, created = job["id"], job.get("createdAt")
     key = "hq" if job.get("quality") == "hq" else "std"
     uploaded = []
@@ -170,11 +179,11 @@ def process(job):
         return last["cancelled"]
 
     state.update(status="working", job=vid)
-    log("job", vid, job.get("style"), key)
+    log("job", job.get("dealer", "-"), vid, job.get("style"), key)
     try:
         if update(state="working", claim=True, text="Starting the background computer…", frac=0.01):
             return
-        veh = requests.get(SITE + "/api/vehicle", params={"id": vid}, timeout=30).json()
+        veh = requests.get(base + "/api/vehicle", params={"id": vid}, timeout=30).json()
         urls = [u for u in (veh.get("exterior") or []) if isinstance(u, str)]
         if len(urls) < 2:
             update(state="failed", text="Could not apply the background: record the exterior walk-around first.", error="no frames")
@@ -213,7 +222,7 @@ def process(job):
                 page.expose_function("wSeg", w_seg)
                 page.expose_function("wUpload", w_upload)
                 page.expose_function("wStatus", w_status)
-                page.set_content(PAGE.format(site=SITE), wait_until="load", timeout=120000)
+                page.set_content(PAGE.format(site=base, dealer=json.dumps(dealer).replace("<", "\\u003c")), wait_until="load", timeout=120000)
                 page.wait_for_function("window.BgStudio && window.PhotoTools", timeout=60000)
                 spin = page.evaluate(RUN, {"job": job, "urls": urls})
             finally:
@@ -250,7 +259,7 @@ def main():
     deadline = time.time() + 5 * 3600             # stay well inside GitHub's 6-hour job limit
     while time.time() < deadline:
         try:
-            r = requests.get(API, params={"next": 1}, headers=HDR, timeout=30)
+            r = requests.get(SITE + "/api/_bgnext", headers=HDR, timeout=60)   # oldest job, any dealership
             job = r.json() if r.ok else {}
             if not r.ok:
                 log("queue check failed", r.status_code, r.text[:200])
