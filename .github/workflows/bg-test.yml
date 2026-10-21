@@ -1,0 +1,36 @@
+name: Background test (temporary)
+on:
+  push:
+    branches: [bg-test]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SITE_URL: https://autospin360.v24svb75kp.workers.dev
+      MODEL_DIR: ${{ github.workspace }}/models
+      FRAMES: "12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: models-v1
+      - run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - run: python test/run_test.py
+      - name: Save results to a branch
+        if: always()
+        run: |
+          mkdir -p /tmp/res && cp -r out/* /tmp/res/ || true
+          git config user.name "bg-test"; git config user.email "bg-test@users.noreply.github.com"
+          git checkout --orphan bg-test-results
+          git rm -rf -q . ; rm -rf * .github
+          cp -r /tmp/res/* . ; git add -A ; git commit -q -m "test results" ; git push -f origin bg-test-results
