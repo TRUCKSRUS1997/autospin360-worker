@@ -11,4 +11,7 @@ dealer taps **Apply to spin**, so the admin app doesn't need to stay open.
 
 Works for every dealership on the site.
 
+`bg_patch.py` adjusts the site's background code before running it, for the turntable looks: the
+vehicle no longer hops on the platform, and its reflection meets every wheel so it stands on the floor.
+
 Secret needed: `BG_WORKER_KEY` (same value as the `BG_WORKER_KEY` secret on Cloudflare).

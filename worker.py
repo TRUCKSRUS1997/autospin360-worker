@@ -33,6 +33,8 @@ import requests
 from onnx import TensorProto, numpy_helper
 from PIL import Image, ImageOps
 
+import bg_patch
+
 SITE = os.environ.get("SITE_URL", "https://autospin360.v24svb75kp.workers.dev").rstrip("/")
 KEY = os.environ.get("BG_WORKER_KEY", "")
 HDR = {"x-worker-key": KEY}
@@ -137,7 +139,7 @@ def cutout(url, key):
 # ---------------------------------------------------------------- one job
 PAGE = """<!doctype html><meta charset="utf-8"><body>
 <script>window.DEALER = {dealer};</script>
-<script src="{site}/photo-tools.js"></script><script src="{site}/bg-studio.js"></script>"""
+<script src="{site}/photo-tools.js"></script>"""
 
 RUN = """async ({ job, urls }) => {
   const fromB64 = s => { const b = atob(s), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
@@ -223,6 +225,11 @@ def process(job):
                 page.expose_function("wUpload", w_upload)
                 page.expose_function("wStatus", w_status)
                 page.set_content(PAGE.format(site=base, dealer=json.dumps(dealer).replace("<", "\\u003c")), wait_until="load", timeout=120000)
+                # the site's background code, with the worker's fixes for the turntable looks (bg_patch.py)
+                src = requests.get(base + "/bg-studio.js", timeout=60).text
+                src, why = bg_patch.patch(src)
+                log("bg-studio fixes", "applied" if not why else "NOT applied (" + why + ")")
+                page.add_script_tag(content=src)
                 page.wait_for_function("window.BgStudio && window.PhotoTools", timeout=60000)
                 spin = page.evaluate(RUN, {"job": job, "urls": urls})
             finally:
