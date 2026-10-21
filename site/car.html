@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vehicle</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="apple-touch-icon" href="/api/icon?size=192">
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AutoSpin360">
+<meta name="theme-color" content="#0f1216">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/viewer.css">
+<style>
+body{overflow-x:hidden}
+.stage-wrap{height:min(72vh,640px); min-height:340px}
+.specs{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin:20px 0}
+.specs div{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.specs div span{display:block; font-size:12px; color:var(--muted); margin-bottom:2px}
+.specs div b{font-size:15px}
+.notes{white-space:pre-wrap; color:var(--muted); line-height:1.5; margin-top:8px}
+.titlebar{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
+.share-btn{display:inline-flex; align-items:center; gap:6px; flex:none; margin-top:2px}
+.share-btn svg{width:16px; height:16px}
+.photo-mode{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px}
+.photo-mode .seg2{display:inline-flex; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:3px}
+.photo-mode .seg2 button{border:0; background:transparent; color:var(--muted); font:inherit; font-size:13px; font-weight:600; padding:6px 12px; border-radius:7px; cursor:pointer}
+.photo-mode .seg2 button[aria-pressed="true"]{background:#f5b800; color:#14171a}
+.photo-mode .seg2 button:disabled{opacity:.45; cursor:default}
+.photo-mode small{color:var(--muted); font-size:12px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">AutoSpin<span>360</span></a>
+  <nav><a href="/">All vehicles</a></nav>
+</header>
+<main class="wrap">
+  <div id="state" class="loader"><span class="spin"></span> Loading vehicle&hellip;</div>
+  <div id="content" hidden>
+    <div class="titlebar">
+      <h1 id="title" style="font-size:24px"></h1>
+      <button type="button" class="btn share-btn" id="shareBtn" aria-label="Share this vehicle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+        <span id="shareLbl">Share</span>
+      </button>
+    </div>
+    <p id="stockLine" style="color:var(--muted);margin:0 0 16px"></p>
+    <div class="photo-mode" id="photoMode" hidden>
+      <div class="seg2" role="group" aria-label="Photo mode">
+        <button type="button" data-mode="enh" aria-pressed="false" disabled>Enhanced</button>
+        <button type="button" data-mode="orig" aria-pressed="true">Original</button>
+      </div>
+      <small id="modeNote">Preparing enhanced view&hellip;</small>
+    </div>
+    <div class="stage-wrap"><div id="stage" class="viewer-shell"></div></div>
+    <div class="specs" id="specs"></div>
+    <p class="notes" id="notes" hidden></p>
+  </div>
+</main>
+<script src="/home-btn.js"></script>
+<script src="/viewer.js"></script>
+<script src="/photo-tools.js"></script>
+<script>
+(async () => {
+  const PT = window.PhotoTools;
+  const id = new URLSearchParams(location.search).get('id');
+  const stateEl = document.getElementById('state');
+  if (!id) { stateEl.innerHTML = '<div class="empty-state">No vehicle specified.</div>'; return; }
+  let v, bg = {};
+  try {
+    const [r, rb] = await Promise.all([
+      fetch('/api/vehicle?id=' + encodeURIComponent(id)),
+      fetch('/api/background?id=' + encodeURIComponent(id)).catch(() => null),
+    ]);
+    if (!r.ok) throw new Error('not found');
+    v = await r.json();
+    if (rb && rb.ok) bg = await rb.json().catch(() => ({}));
+  } catch (e) {
+    stateEl.innerHTML = '<div class="empty-state">That vehicle could not be found.</div>';
+    return;
+  }
+  const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  document.title = [v.year, v.make, v.model].filter(Boolean).join(' ') || 'Vehicle';
+  document.getElementById('title').textContent = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
+  document.getElementById('stockLine').textContent = v.stock ? ('Stock #' + v.stock) : '';
+  const specs = [];
+  if (v.odometer) specs.push(['Odometer', v.odometer]);
+  if (v.price) specs.push(['Price', v.price]);
+  if (v.vin) specs.push(['VIN', v.vin]);
+  document.getElementById('specs').innerHTML = specs.map(([k, val]) => `<div><span>${esc(k)}</span><b>${esc(val)}</b></div>`).join('');
+  if (v.notes) { const n = document.getElementById('notes'); n.textContent = v.notes; n.hidden = false; }
+
+  const extUrls = (v.exterior || []).filter(Boolean), intUrls = (v.interiorShots || []).filter(Boolean);
+  const hasPhotos = extUrls.length >= 2;
+  // Dealer-chosen background: finished frames (plain + enhanced) were made in the admin, so they
+  // load instantly. Only used while they still match every current exterior photo.
+  const map = bg && bg.style && bg.map || null;
+  const bgOn = !!(map && hasPhotos && extUrls.every(u => map[u] && map[u].plain && map[u].enh));
+
+  let ext;
+  const int = await PT.prepare(intUrls, true);
+  if (bgOn) ext = null;
+  else ext = await PT.prepare(extUrls, true);
+  const sets = {
+    orig: { exterior: bgOn ? extUrls.map(u => map[u].plain) : ext.orig, interiorShots: int.orig },
+    enh: null,
+  };
+
+  stateEl.hidden = true;
+  document.getElementById('content').hidden = false;
+  let stageRef = document.getElementById('stage');
+  let mode = 'orig', viewer = null;
+  const mountMode = m => {
+    if (viewer && viewer.destroy) viewer.destroy();
+    const fresh = stageRef.cloneNode(false); stageRef.replaceWith(fresh);   // drop old listeners
+    stageRef = fresh;
+    viewer = VehicleViewer.mount(fresh, Object.assign({}, v, sets[m]));
+  };
+  viewer = VehicleViewer.mount(stageRef, Object.assign({}, v, sets.orig));
+
+  // On a phone held upright the spin is a wide picture in a tall box: size the box to the picture
+  // (plus room for the buttons above and below it) instead of leaving a big empty area.
+  const wrapEl = document.querySelector('.stage-wrap');
+  let aspect = 0;
+  const fitStage = () => {
+    if (!aspect) return;
+    const w = wrapEl.clientWidth;
+    if (innerWidth < 760 || innerHeight > innerWidth) wrapEl.style.height = Math.round(Math.min(innerHeight * 0.8, Math.max(300, w / aspect + 132))) + 'px';
+    else wrapEl.style.height = '';
+  };
+  const first = sets.orig.exterior && sets.orig.exterior[0];
+  if (first) PT.loadImg(first).then(im => { const iw = im.naturalWidth, ih = im.naturalHeight; aspect = Math.max(iw, ih) / Math.min(iw, ih); fitStage(); if (viewer && viewer.resize) viewer.resize(); else dispatchEvent(new Event('resize')); }).catch(() => {});
+  addEventListener('resize', fitStage);
+
+  // Share: native share sheet on phones, copy-link fallback elsewhere.
+  const shareBtn = document.getElementById('shareBtn'), shareLbl = document.getElementById('shareLbl');
+  const flash = txt => { shareLbl.textContent = txt; setTimeout(() => { shareLbl.textContent = 'Share'; }, 2200); };
+  shareBtn.addEventListener('click', async () => {
+    const title = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
+    const url = location.origin + '/car.html?id=' + encodeURIComponent(id);
+    const text = title + (v.stock ? ' (Stock #' + v.stock + ')' : '') + ' — spin it around in 360°';
+    if (navigator.share) {
+      try { await navigator.share({ title, text, url }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(url); flash('Link copied'); }
+    catch (e) { window.prompt('Copy this link:', url); }
+  });
+
+  // Enhanced view: built in the background (or ready-made with a dealer background), switches on when ready.
+  const modeBox = document.getElementById('photoMode'), note = document.getElementById('modeNote');
+  const btns = modeBox.querySelectorAll('button');
+  const bgNote = !bgOn ? '' : bg.style === 'real' ? ' Background blurred; the vehicle is as photographed.' : ' Background digitally replaced; the vehicle is as photographed.';
+  const setMode = m => {
+    if (m === mode || !sets[m]) return;
+    mode = m; btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
+    note.textContent = (m === 'enh' ? 'Glare and haze reduced. Tone only, no pixels moved or retouched.' : 'Untouched photos, exactly as taken.') + bgNote;
+    mountMode(m);
+  };
+  btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  if (hasPhotos) {
+    modeBox.hidden = false;
+    const total = (bgOn ? 0 : ext.items.filter(Boolean).length) + int.items.filter(Boolean).length; let done = 0;
+    const step = () => { done++; note.textContent = `Preparing enhanced view… ${Math.round(done / Math.max(1, total) * 100)}%`; };
+    if (bgOn) note.textContent = 'Preparing enhanced view…' + bgNote;
+    try {
+      const enhExt = bgOn ? extUrls.map(u => map[u].enh) : await PT.enhanceSet(ext, step);
+      const enhInt = await PT.enhanceSet(int, step);
+      sets.enh = { exterior: enhExt, interiorShots: enhInt };
+      modeBox.querySelector('[data-mode="enh"]').disabled = false;
+      setMode('enh');
+    } catch (e) {
+      note.textContent = 'Enhanced view isn’t available for these photos.' + bgNote;
+    }
+  }
+})();
+</script>
+</body>
+</html>
