@@ -124,16 +124,70 @@ def fetch_image(url):
     return im
 
 
-def cutout(url, key):
-    """Returns the vehicle mask (1024x1024, 0-255) for one frame, exactly what the admin page's
-    in-browser cut-out produces, as base64 for the browser side."""
-    im = fetch_image(url)
+WORK = int(os.environ.get("MASK_SIZE", "2048"))   # longest side of the refined mask
+TTA = os.environ.get("MASK_TTA", "1") != "0"        # also run the model on the mirrored frame
+
+
+def _box(x, r):
+    """Mean over a (2r+1) square round every pixel (edges repeated), via running sums."""
+    h, w = x.shape
+    k = 2 * r + 1
+    c = np.pad(x, ((r + 1, r), (r + 1, r)), mode="edge").astype(np.float64)
+    c = c.cumsum(0).cumsum(1)
+    return ((c[k:k + h, k:k + w] - c[0:h, k:k + w] - c[k:k + h, 0:w] + c[0:h, 0:w]) / (k * k)).astype(np.float32)
+
+
+def _guided(I, p, r, eps):
+    """Colour guided filter (He et al.): reshapes the mask p so its edges follow the photo I's
+    real edges, at the photo's own resolution."""
+    mI = [_box(I[..., c], r) for c in range(3)]
+    mp = _box(p, r)
+    cov = [_box(I[..., c] * p, r) - mI[c] * mp for c in range(3)]
+    var = {}
+    for a in range(3):
+        for b in range(a, 3):
+            var[a, b] = _box(I[..., a] * I[..., b], r) - mI[a] * mI[b] + (eps if a == b else 0)
+    S = np.stack([np.stack([var[min(a, b), max(a, b)] for b in range(3)], -1) for a in range(3)], -2)
+    A = np.linalg.solve(S, np.stack(cov, -1)[..., None])[..., 0]
+    bb = mp - sum(A[..., c] * mI[c] for c in range(3))
+    return sum(_box(A[..., c], r) * I[..., c] for c in range(3)) + _box(bb, r)
+
+
+def _model(im, key):
     x = (np.asarray(im.resize((S, S), Image.BICUBIC), np.float32) / 255 - MEAN) / STD
     x = x.transpose(2, 0, 1)[None]
-    sess = session(key)
-    y = sess.run(None, {MODELS[key]["input"]: x})[0][0, 0]
-    p = 1 / (1 + np.exp(-y)) if MODELS[key]["logits"] else np.clip(y, 0, 1)
-    return base64.b64encode(np.round(p * 255).astype(np.uint8).tobytes()).decode()
+    y = session(key).run(None, {MODELS[key]["input"]: x})[0][0, 0]
+    return 1 / (1 + np.exp(-y)) if MODELS[key]["logits"] else np.clip(y, 0, 1)
+
+
+def refine(im, p):
+    """The model sees a 1024x1024 squashed copy, so its mask is soft and blocky once stretched back
+    over the photo (the hazy edge). Stretch it to working size, then let the photo's own edges
+    sharpen it, only in the thin band along the vehicle's outline, and tighten the faint
+    see-through fringe of old background."""
+    k = min(1.0, WORK / max(im.size))
+    w, h = max(1, round(im.width * k)), max(1, round(im.height * k))
+    I = np.asarray(im.resize((w, h), Image.LANCZOS), np.float32) / 255
+    up = np.asarray(Image.fromarray(p.astype(np.float32), "F").resize((w, h), Image.BILINEAR), np.float32)
+    up = np.clip(up, 0, 1)
+    r = max(3, round(max(w, h) / 256))
+    q = np.clip(_guided(I, up, r, 4e-4), 0, 1)
+    near = _box((up > 0.5).astype(np.float32), 2 * r)                # 0 outside .. 1 inside
+    band = np.clip(np.minimum(near, 1 - near) * 8, 0, 1)            # 1 along the outline only
+    m = up + (q - up) * band
+    m = np.clip((m - 0.08) / 0.84, 0, 1)                             # drop the faint fringe
+    return w, h, np.round(m * 255).astype(np.uint8)
+
+
+def cutout(url, key):
+    """Returns the vehicle mask for one frame, refined at up to 2048 px, as
+    { w, h, a: base64 bytes (0-255) } for the browser side."""
+    im = fetch_image(url)
+    p = _model(im, key)
+    if TTA:                                       # average with the mirrored frame: steadier edges
+        p = (p + _model(ImageOps.mirror(im), key)[:, ::-1]) / 2
+    w, h, m = refine(im, p)
+    return {"w": w, "h": h, "a": base64.b64encode(m.tobytes()).decode()}
 
 
 # ---------------------------------------------------------------- one job
@@ -147,7 +201,7 @@ RUN = """async ({ job, urls }) => {
   const ac = new AbortController(); let k = 0; const map = {};
   await BgStudio.applyBackground({
     urls, style: job.style, customUrl: job.customUrl || '', signal: ac.signal,
-    segmenter: async () => ({ w: 1024, h: 1024, a: fromB64(await window.wSeg(k++)) }),
+    segmenter: async () => { const r = await window.wSeg(k++); return { w: r.w, h: r.h, a: fromB64(r.a), refined: true }; },
     onStatus: (t, f) => { window.wStatus(t, f).then(c => { if (c) ac.abort(); }); },
     onFrame: async (i, b) => {
       const plain = await window.wUpload(await toB64(b.plain)); if (!plain) throw new Error('Upload failed');
@@ -226,7 +280,10 @@ def process(job):
                 page.expose_function("wStatus", w_status)
                 page.set_content(PAGE.format(site=base, dealer=json.dumps(dealer).replace("<", "\\u003c")), wait_until="load", timeout=120000)
                 # the site's background code, with the worker's fixes for the turntable looks (bg_patch.py)
-                src = requests.get(base + "/bg-studio.js", timeout=60).text
+                # the newest background code is kept in this repository (site/bg-studio.js) so
+                # improvements reach every spin straight away; the site's copy is the fallback
+                local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "bg-studio.js")
+                src = open(local).read() if os.path.exists(local) else requests.get(base + "/bg-studio.js", timeout=60).text
                 src, why = bg_patch.patch(src)
                 log("bg-studio fixes", "applied" if not why else "NOT applied (" + why + ")")
                 page.add_script_tag(content=src)

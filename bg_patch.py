@@ -13,6 +13,7 @@
    mirrored column by column about the line laid under the tyres, so every wheel meets its reflection.
 
 If the site's code changes and a piece can't be found, the original code is used unchanged.
+Since 2026-10-21 the site's own bg-studio.js has these fixes built in, so nothing is changed then.
 """
 
 PATCHES = [
@@ -83,6 +84,8 @@ function composite(frame, mCan,""",
 
 def patch(src):
     """Returns (patched source, None) or (original source, reason) if the site's code has changed."""
+    if "[worker patch]" in src:                   # the site already has these fixes built in
+        return src, None
     out = src
     for old, new, count in PATCHES:
         if out.count(old) != count:

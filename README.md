@@ -15,3 +15,8 @@ Works for every dealership on the site.
 vehicle no longer hops on the platform, and its reflection meets every wheel so it stands on the floor.
 
 Secret needed: `BG_WORKER_KEY` (same value as the `BG_WORKER_KEY` secret on Cloudflare).
+
+**2026-10-21:** cut-outs are refined at the photo's own size (up to 2048 px) with a colour guided
+filter and averaged with the mirrored frame, which removes the hazy fringe round the vehicle.
+`site/bg-studio.js` is the newest background code (sharper turntable layout, quieter glass
+reflection, and the "Lot, blurred" look); the worker uses it instead of the site's copy.
