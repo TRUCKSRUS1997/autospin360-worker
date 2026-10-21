@@ -735,7 +735,11 @@ function realBlur(frame, mCan, carBottomPx, carTopPx) {
     cg.filter = 'none';
     return c;
   };
-  const strong = blurOf(Math.max(4, W * 0.011)), light = blurOf(Math.max(1, W * 0.0025));
+  const strong = blurOf(Math.max(4, W * 0.011));
+  // the light blur keeps the vehicle in it, so the ground right at the tyres stays joined to them
+  // (cutting the vehicle out here leaves a smeared ring round the wheels that looks like floating)
+  const light = mkCanvas(W, H), lg = light.getContext('2d');
+  lg.filter = `blur(${Math.max(1, Math.round(W * 0.002))}px)`; lg.drawImage(frame, 0, 0); lg.filter = 'none';
   g.drawImage(frame, 0, 0);                         // underneath: in case any blur edge is thin
   g.drawImage(strong, 0, 0);
   // near the tyres: light blur, fading to the strong blur by about the vehicle's mid-height
@@ -743,7 +747,7 @@ function realBlur(frame, mCan, carBottomPx, carTopPx) {
   const near = mkCanvas(W, H), ng = near.getContext('2d');
   ng.drawImage(light, 0, 0);
   ng.globalCompositeOperation = 'destination-in';
-  const gr = ng.createLinearGradient(0, yt + (yb - yt) * 0.45, 0, yb);
+  const gr = ng.createLinearGradient(0, yt + (yb - yt) * 0.4, 0, yt + (yb - yt) * 0.85);
   gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, '#000');
   ng.fillStyle = gr; ng.fillRect(0, 0, W, H);
   g.drawImage(near, 0, 0);

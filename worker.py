@@ -280,7 +280,10 @@ def process(job):
                 page.expose_function("wStatus", w_status)
                 page.set_content(PAGE.format(site=base, dealer=json.dumps(dealer).replace("<", "\\u003c")), wait_until="load", timeout=120000)
                 # the site's background code, with the worker's fixes for the turntable looks (bg_patch.py)
-                src = requests.get(base + "/bg-studio.js", timeout=60).text
+                # the newest background code is kept in this repository (site/bg-studio.js) so
+                # improvements reach every spin straight away; the site's copy is the fallback
+                local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "bg-studio.js")
+                src = open(local).read() if os.path.exists(local) else requests.get(base + "/bg-studio.js", timeout=60).text
                 src, why = bg_patch.patch(src)
                 log("bg-studio fixes", "applied" if not why else "NOT applied (" + why + ")")
                 page.add_script_tag(content=src)

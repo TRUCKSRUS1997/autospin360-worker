@@ -12,6 +12,7 @@ jobs:
       SITE_URL: https://autospin360.v24svb75kp.workers.dev
       MODEL_DIR: ${{ github.workspace }}/models
       FRAMES: "12"
+      RUNS: "new:real"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -75,7 +75,7 @@ RUN = """async ({ style, urls, keep, refined }) => {
 dealer = requests.get(SITE + "/api/branding", timeout=30).json()
 from playwright.sync_api import sync_playwright
 keep = [0, n // 4, n // 2, (3 * n) // 4]
-runs = [("old", "mirror"), ("new", "mirror"), ("old", "turntable"), ("new", "turntable"), ("new", "real")]
+runs = [tuple(r.split(":")) for r in os.environ.get("RUNS", "old:mirror,new:mirror,old:turntable,new:turntable,new:real").split(",")]
 with sync_playwright() as pw:
     br = pw.chromium.launch(args=["--disable-dev-shm-usage", "--no-sandbox"])
     for ver, style in runs:
