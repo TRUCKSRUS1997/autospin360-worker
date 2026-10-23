@@ -397,21 +397,21 @@ function fillGaps(vals) {
   }
   return out;
 }
-// Turntable layout, measured frame by frame (2026-10-23). A turntable camera never moves, so in a real
-// turntable shot the vehicle stays the same height in the picture and its tyres stay on the same spot of
-// the platform all the way round. A hand-held walk-around drifts closer and further, bobs and sways, so
-// every frame is moved and resized to undo exactly that:
-//  - size: each frame is scaled so the vehicle's height (tyre to roof) matches the spin's median. Only a
-//    roof or tyre cut off by the photo's edge, or a single frame whose height jumps >12% from both
-//    neighbours (a cut-out glitch), borrows from its neighbours. Smoothing round the spin was tried and
-//    lets walking-distance changes through as pulsing (up to 143 px between frames on a real spin).
-//  - floor: the nearest tyre less half the footprint depth (nearest to furthest tyre), every frame;
-//    only the depth, which changes slowly as the vehicle turns, is smoothed.
-//  - across: the vehicle's centre; where one end runs off the photo, the end that IS there plus half the
-//    vehicle's usual width at that angle, so the vehicle doesn't jump sideways.
-// Measured on a 50-frame Enclave walk-around (1600x900): tyre line 1.9 px RMS (was 6.9, worst jump
-// 11 px, was 46), vehicle height steady to the measuring precision (was 20.6 px RMS, jumps to 143 px),
-// centre 1.1 px RMS where both ends are in the photo.
+// Turntable layout (2026-10-23). A turntable camera never moves: the vehicle stays the same size, its
+// wheels stay on the same line and it stays on the platform all the way round. A hand-held walk-around
+// drifts closer and further, bobs and sways, so every frame is moved and resized to undo exactly that:
+//  - size: each frame is scaled so the vehicle's height (lowest tyre point to roof) matches the spin's
+//    median. A roof or tyre cut off by the photo's edge, or a single frame whose height jumps >12% from
+//    both neighbours (a cut-out glitch), borrows from its neighbours.
+//  - up/down: every frame's lowest tyre point lands on the same line, so (with the height fixed) the
+//    roof line doesn't move either. (Placing it by the footprint's centre instead lets the vehicle rise
+//    and sink by ~40 px as it turns, which reads as bouncing.)
+//  - across: the vehicle's centre; where one end runs off the photo, the end that IS there plus half
+//    the vehicle's usual width at that angle, so it doesn't jump sideways.
+//  - platform: at its longest (side-on) the vehicle covers about 80% of the platform's width, and every
+//    frame's footprint (its outline along the floor) sits inside the platform's oval.
+// Measured on a 50-frame walk-around (1600x900): tyre line 2.2 px RMS (was 19.7, jumps to 75 px),
+// height 2.2 px RMS (was 17.8, jumps to 123 px), centre 1.2 px RMS where both ends are in the photo.
 function turntableLayout(masks, W, H) {
   const pct = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * q))]; };
   const n = masks.length, at = (a, i) => a[((i % n) + n) % n];
@@ -419,6 +419,13 @@ function turntableLayout(masks, W, H) {
     cutL: !!m.cutL, cutR: !!m.cutR, cutT: m.top <= 0.004, cutB: m.bottom >= 0.996 } : null);
   const good = fr.filter(Boolean);
   if (!good.length) return null;
+  // the outline along the floor: lowest vehicle point in every 8th column (photo pixels)
+  const foot = masks.map(m => {
+    if (!m || m.empty) return null;
+    const pts = [], st = Math.max(1, Math.round(m.w / 128));
+    for (let x = 0; x < m.w; x += st) for (let y = m.h - 1; y >= 0; y--) if (m.a[y * m.w + x] > 128) { pts.push([(x + 0.5) / m.w * W, (y + 1) / m.h * H]); break; }
+    return pts;
+  });
   // size
   const hRaw = fr.map(f => (f && !f.cutT && !f.cutB) ? f.B - f.T : null);
   const known = hRaw.filter(v => v != null);
@@ -430,10 +437,9 @@ function turntableLayout(masks, W, H) {
   });
   const hAll = known.length ? fillGaps(hIn) : fr.map(f => f ? f.B - f.T : null);
   const sc = hAll.map((h, i) => fr[i] ? Math.min(1.6, Math.max(0.6, hMed / Math.max(1, h))) : null);
-  // floor contact
-  const Dsm = fitRound(fr.map(f => f ? f.D : null), 3);
+  // lowest tyre point (a tyre cut off at the bottom of the photo borrows from its neighbours)
   const Bok = fr.map(f => (f && !f.cutB) ? f.B : null), Bfill = fillGaps(Bok);
-  const foot = fr.map((f, i) => f ? (Bok[i] != null ? Bok[i] : Bfill[i]) - Math.max(0, Math.min(Dsm[i], f.B - f.T)) / 2 : null);
+  const base = fr.map((f, i) => f ? (Bok[i] != null ? Bok[i] : Bfill[i]) : null);
   // centre across
   const wS = fitRound(fr.map((f, i) => (f && !f.cutL && !f.cutR) ? (f.R - f.L) * sc[i] : null), 4);
   const mid = fr.map((f, i) => {
@@ -443,26 +449,43 @@ function turntableLayout(masks, W, H) {
     if (f.cutL && !f.cutR) return f.R - ww / 2;
     return (f.L + f.R) / 2;
   });
-  fr.forEach((f, i) => { if (f) { f.s = sc[i]; f.mid = mid[i]; f.foot = foot[i]; f.D = Dsm[i]; } });
-  const widest = Math.max(...fr.map((f, i) => f ? (wS[i] || (f.R - f.L) * f.s) : 0));
-  const deep = pct(good.map(f => f.D * f.s), 0.8);
-  // a turntable shot shows the vehicle large in the picture, with a little showroom around it
-  let g = Math.min(1, H * 0.58 / Math.max(1, hMed)), rx, ry, th, cy;
-  for (let it = 0; it < 40; it++) {
-    rx = widest * g * 0.56;
-    if (rx > W * 0.49) { g *= W * 0.49 / rx; rx = W * 0.49; }
-    ry = Math.min(rx * 0.42, Math.max(rx * 0.2, deep * g * 0.62));
-    th = Math.max(3, ry * 0.12);
-    cy = H * 0.94 - ry - th;
-    // every frame's roof must stay inside the picture
-    const worstTop = Math.min(...good.map(f => cy + f.D * f.s * g / 2 - hMed * g));
-    if (worstTop >= H * 0.05) break;
-    g *= 0.96;
-  }
+  // platform: centred across, its front edge near the bottom of the picture; the vehicle's lowest point
+  // sits a little in front of the platform's centre line (a quarter of the footprint's usual depth)
+  const Dmed = pct(good.map((f, i) => f.D * sc[fr.indexOf(f)]), 0.5);
   const cx = W / 2;
-  const place = fr.map(f => f ? { s: f.s * g, dx: cx - f.s * g * f.mid, dy: cy - f.s * g * f.foot } : null);   // no rounding
+  // the vehicle's longest reach from its centre, at the common size (where an end runs off the photo,
+  // its usual width at that angle)
+  const reach = Math.max(...fr.map((f, i) => { if (!f) return 0; const ww = (wS[i] || (f.R - f.L) * sc[i]) / sc[i];
+    const lo = f.cutL ? mid[i] - ww / 2 : f.L, hi = f.cutR ? mid[i] + ww / 2 : f.R; return Math.max(mid[i] - lo, hi - mid[i]) * sc[i]; }));
+  // like a real turntable shot: at its longest (side-on) the vehicle covers about 80% of the platform
+  let g = Math.min(1, H * 0.58 / Math.max(1, hMed), W * 0.47 * 0.8 / Math.max(1, reach)), rx = W * 0.47, ry = rx * 0.2, th = 3, cy = H * 0.7, place = null;
+  for (let it = 0; it < 60; it++) {
+    // the oval: as wide as the picture allows, depth from how far the footprint reaches into the picture
+    rx = W * 0.47;
+    ry = Math.min(rx * 0.3, Math.max(rx * 0.16, Dmed * g * 0.9));
+    th = Math.max(3, ry * 0.12);
+    cy = H * 0.95 - ry - th;
+    const yb = cy + Math.min(ry * 0.45, Dmed * g * 0.25);
+    place = fr.map((f, i) => f ? { s: sc[i] * g, dx: cx - sc[i] * g * mid[i], dy: yb - sc[i] * g * base[i] } : null);
+    // every frame: footprint inside the oval (with a margin), roof inside the picture
+    let ok = true;
+    for (let i = 0; i < n && ok; i++) {
+      const p = place[i]; if (!p) continue;
+      if (yb - hMed * g < H * 0.04) { ok = false; break; }
+      for (const [x, y] of foot[i]) {
+        const X = p.s * x + p.dx, Y = p.s * y + p.dy;
+        if (((X - cx) / (rx * 0.94)) ** 2 + ((Y - cy) / (ry * 0.94)) ** 2 > 1 && Y > cy - ry * 0.2) {
+          // only the part of the outline that touches the floor counts (not the body overhanging behind)
+          const nearFloor = Y > p.s * (base[i] - Dmed / sc[i] * 1.2) + p.dy;
+          if (nearFloor) { ok = false; break; }
+        }
+      }
+    }
+    if (ok) break;
+    g *= 0.97;
+  }
   // how much of the vehicle is missing where it runs off the photo (for the message at the end)
-  const short = fr.map((f, i) => (f && (f.cutL || f.cutR) && wS[i]) ? Math.max(0, 1 - (f.R - f.L) * f.s / wS[i]) : 0);
+  const short = fr.map((f, i) => (f && (f.cutL || f.cutR) && wS[i]) ? Math.max(0, 1 - (f.R - f.L) * sc[i] / wS[i]) : 0);
   return { table: { cx, cy, rx, ry, th }, place, hz: Math.max(H * 0.18, cy - ry - H * 0.1), cutOff: short.filter(v => v > 0.04).length };
 }
 // Draws a canvas moved/resized by place = { s, dx, dy } onto a new canvas of the same size.
