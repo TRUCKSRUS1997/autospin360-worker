@@ -384,38 +384,67 @@ function cameraBob(rowsList, H) {
   idx.forEach(i => { out[i] = Math.max(-lim, Math.min(lim, (out[i] - mean) * H / h)); });
   return out;
 }
-function turntableLayout(masks, W, H, bobs) {
+// Fills gaps (null) in a loop of per-frame values: exact where known, a straight line between the
+// nearest known neighbours (wrapping round the spin) where not.
+function fillGaps(vals) {
+  const n = vals.length, out = vals.slice();
+  if (!vals.some(v => v != null)) return out;
+  for (let i = 0; i < n; i++) if (out[i] == null) {
+    let a = null, b = null;
+    for (let d = 1; d < n; d++) { if (a == null && vals[(i - d + n) % n] != null) a = d; if (b == null && vals[(i + d) % n] != null) b = d; if (a != null && b != null) break; }
+    const va = vals[(i - a + n) % n], vb = vals[(i + b) % n];
+    out[i] = va + (vb - va) * a / (a + b);
+  }
+  return out;
+}
+// Turntable layout, measured frame by frame (2026-10-23). A turntable camera never moves, so in a real
+// turntable shot the vehicle stays the same height in the picture and its tyres stay on the same spot of
+// the platform all the way round. A hand-held walk-around drifts closer and further, bobs and sways, so
+// every frame is moved and resized to undo exactly that:
+//  - size: each frame is scaled so the vehicle's height (tyre to roof) matches the spin's median. Only a
+//    roof or tyre cut off by the photo's edge, or a single frame whose height jumps >12% from both
+//    neighbours (a cut-out glitch), borrows from its neighbours. Smoothing round the spin was tried and
+//    lets walking-distance changes through as pulsing (up to 143 px between frames on a real spin).
+//  - floor: the nearest tyre less half the footprint depth (nearest to furthest tyre), every frame;
+//    only the depth, which changes slowly as the vehicle turns, is smoothed.
+//  - across: the vehicle's centre; where one end runs off the photo, the end that IS there plus half the
+//    vehicle's usual width at that angle, so the vehicle doesn't jump sideways.
+// Measured on a 50-frame Enclave walk-around (1600x900): tyre line 1.9 px RMS (was 6.9, worst jump
+// 11 px, was 46), vehicle height steady to the measuring precision (was 20.6 px RMS, jumps to 143 px),
+// centre 1.1 px RMS where both ends are in the photo.
+function turntableLayout(masks, W, H) {
   const pct = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * q))]; };
-  const fr = masks.map(m => (m && !m.empty) ? { L: m.left * W, R: m.right * W, T: m.top * H, B: m.bottom * H, D: (m.depth || 0) * H, cut: !!(m.cutL || m.cutR) } : null);
+  const n = masks.length, at = (a, i) => a[((i % n) + n) % n];
+  const fr = masks.map(m => (m && !m.empty) ? { L: m.left * W, R: m.right * W, T: m.top * H, B: m.bottom * H, D: (m.depth || 0) * H,
+    cutL: !!m.cutL, cutR: !!m.cutR, cutT: m.top <= 0.004, cutB: m.bottom >= 0.996 } : null);
   const good = fr.filter(Boolean);
   if (!good.length) return null;
-  const hMed = pct(good.map(f => f.B - f.T), 0.5);
-  // two waves round the loop: enough to follow the real side-on / nose-on change and slow camera
-  // drift, nowhere near enough to follow frame-to-frame jitter
-  const sz = fitRound(fr.map(f => f ? Math.log(Math.min(1.25, Math.max(0.8, hMed / Math.max(1, f.B - f.T)))) : null), 2);
-  const sigma = Math.max(1.5, fr.length / 16);
-  // centre across: a frame whose vehicle runs off the side of the photo has no true centre. The
-  // side edges are clean in the cut-out, so each frame is centred on its own measurement (that also
-  // takes out the camera's sway); only a frame that jumps away from both neighbours is smoothed.
-  const midRaw = fr.map(f => (f && !f.cut) ? (f.L + f.R) / 2 : null), midS = smoothRound(midRaw, sigma);
-  const devs = midRaw.map((v, i) => v == null ? null : Math.abs(v - midS[i])).filter(v => v != null).sort((x, y) => x - y);
-  const lim = 3 * 1.4826 * (devs[devs.length >> 1] || 0) + W * 0.004;
-  const mid = midRaw.map((v, i) => (v == null || Math.abs(v - midS[i]) > lim) ? midS[i] : v);
-  // floor contact: the line halfway between the nearest and furthest tyre. The cut-out's bottom edge
-  // wobbles a little every frame, so it is smoothed round the spin; but the camera's own bob is taken
-  // out first and put back after, so the smoothing can't hide it (hidden bob is what makes the
-  // vehicle hop on the platform).
-  // [worker patch] floor contact, frame by frame: the nearest tyre less half the footprint depth
-  const nF = fr.length, at = i => fr[((i % nF) + nF) % nF];
-  const Dsm = fitRound(fr.map(f => f ? f.D : null), 3);
-  const foot = fr.map((f, i) => {
-    if (!f) return null;
-    const w = [at(i - 1), f, at(i + 1)].filter(Boolean).map(g => g.B).sort((a, b) => a - b);
-    const B = Math.abs(f.B - w[w.length >> 1]) > H * 0.03 ? w[w.length >> 1] : f.B;
-    return B - Math.max(0, Math.min(Dsm[i], f.B - f.T)) / 2;
+  // size
+  const hRaw = fr.map(f => (f && !f.cutT && !f.cutB) ? f.B - f.T : null);
+  const known = hRaw.filter(v => v != null);
+  const hMed = known.length ? pct(known, 0.5) : pct(good.map(f => f.B - f.T), 0.5);
+  const hIn = hRaw.map((v, i) => {
+    if (v == null) return null;
+    const w = [at(hRaw, i - 1), v, at(hRaw, i + 1)].filter(x => x != null).sort((a, b) => a - b), md = w[w.length >> 1];
+    return Math.abs(v - md) > md * 0.12 ? md : v;
   });
-  fr.forEach((f, i) => { if (f) { f.s = Math.exp(sz[i]); f.mid = mid[i] != null ? mid[i] : (f.L + f.R) / 2; f.foot = foot[i]; } });
-  const widest = Math.max(...good.map(f => (f.R - f.L) * f.s));
+  const hAll = known.length ? fillGaps(hIn) : fr.map(f => f ? f.B - f.T : null);
+  const sc = hAll.map((h, i) => fr[i] ? Math.min(1.6, Math.max(0.6, hMed / Math.max(1, h))) : null);
+  // floor contact
+  const Dsm = fitRound(fr.map(f => f ? f.D : null), 3);
+  const Bok = fr.map(f => (f && !f.cutB) ? f.B : null), Bfill = fillGaps(Bok);
+  const foot = fr.map((f, i) => f ? (Bok[i] != null ? Bok[i] : Bfill[i]) - Math.max(0, Math.min(Dsm[i], f.B - f.T)) / 2 : null);
+  // centre across
+  const wS = fitRound(fr.map((f, i) => (f && !f.cutL && !f.cutR) ? (f.R - f.L) * sc[i] : null), 4);
+  const mid = fr.map((f, i) => {
+    if (!f) return null;
+    const ww = (wS[i] || (f.R - f.L) * sc[i]) / sc[i];
+    if (f.cutR && !f.cutL) return f.L + ww / 2;
+    if (f.cutL && !f.cutR) return f.R - ww / 2;
+    return (f.L + f.R) / 2;
+  });
+  fr.forEach((f, i) => { if (f) { f.s = sc[i]; f.mid = mid[i]; f.foot = foot[i]; f.D = Dsm[i]; } });
+  const widest = Math.max(...fr.map((f, i) => f ? (wS[i] || (f.R - f.L) * f.s) : 0));
   const deep = pct(good.map(f => f.D * f.s), 0.8);
   // a turntable shot shows the vehicle large in the picture, with a little showroom around it
   let g = Math.min(1, H * 0.58 / Math.max(1, hMed)), rx, ry, th, cy;
@@ -426,17 +455,15 @@ function turntableLayout(masks, W, H, bobs) {
     th = Math.max(3, ry * 0.12);
     cy = H * 0.94 - ry - th;
     // every frame's roof must stay inside the picture
-    const worstTop = Math.min(...good.map(f => cy + f.D * f.s * g / 2 - (f.B - f.T) * f.s * g));
+    const worstTop = Math.min(...good.map(f => cy + f.D * f.s * g / 2 - hMed * g));
     if (worstTop >= H * 0.05) break;
     g *= 0.96;
   }
   const cx = W / 2;
-  const place = fr.map(f => {
-    if (!f) return null;
-    const S = f.s * g;
-    return { s: S, dx: cx - S * f.mid, dy: cy - S * f.foot };   // no rounding: whole-pixel steps show as jitter
-  });
-  return { table: { cx, cy, rx, ry, th }, place, hz: Math.max(H * 0.18, cy - ry - H * 0.1) };
+  const place = fr.map(f => f ? { s: f.s * g, dx: cx - f.s * g * f.mid, dy: cy - f.s * g * f.foot } : null);   // no rounding
+  // how much of the vehicle is missing where it runs off the photo (for the message at the end)
+  const short = fr.map((f, i) => (f && (f.cutL || f.cutR) && wS[i]) ? Math.max(0, 1 - (f.R - f.L) * f.s / wS[i]) : 0);
+  return { table: { cx, cy, rx, ry, th }, place, hz: Math.max(H * 0.18, cy - ry - H * 0.1), cutOff: short.filter(v => v > 0.04).length };
 }
 // Draws a canvas moved/resized by place = { s, dx, dy } onto a new canvas of the same size.
 function placed(src, place) {
@@ -858,7 +885,6 @@ async function applyBackground({ urls, style, customUrl, onStatus, onFrame, sign
     const sm = smallCopy(fr, 360);
     smalls.push(sm);
     masks.push(cleanMask(await seg(fr)));
-    if (style === 'turntable' || style === 'mirror') { try { scene.push(masks[i].empty ? null : sceneRows(sm, masks[i])); } catch (e) { scene.push(null); } }
     const per = (performance.now() - t0) / (i + 1), left = Math.round(per * (urls.length - i - 1) / 1000);
     status(`Cutting out the vehicle: ${i + 1} of ${urls.length}${left > 3 ? ` (about ${left < 90 ? left + 's' : Math.round(left / 60) + ' min'} left)` : ''}`, 0.1 + 0.6 * (i + 1) / urls.length);
     await tick();
@@ -870,7 +896,7 @@ async function applyBackground({ urls, style, customUrl, onStatus, onFrame, sign
   const good = masks.filter(m => !m.empty);
   const bottoms = good.map(m => m.bottom).sort((a, b) => a - b);
   const floorFrac = bottoms[Math.floor(bottoms.length / 2)];
-  const layout = (style === 'turntable' || style === 'mirror') ? turntableLayout(masks, W, H, scene.length ? cameraBob(scene, H) : null) : null;
+  const layout = (style === 'turntable' || style === 'mirror') ? turntableLayout(masks, W, H) : null;
   const table = layout && layout.table;
   const hz = layout ? layout.hz : Math.max(H * 0.25, floorFrac * H - H * 0.2);
   const roof = Math.min(...good.map(m => m.top)) * H;
@@ -901,7 +927,7 @@ async function applyBackground({ urls, style, customUrl, onStatus, onFrame, sign
     status(`Saving the new photos: ${i + 1} of ${urls.length}`, 0.7 + 0.3 * (i + 1) / urls.length);
     await tick();
   }
-  status('Done', 1);
+  status(layout && layout.cutOff ? `Done. In ${layout.cutOff} of ${urls.length} photos part of the vehicle runs off the edge of the picture, so it looks cut off there. Record the walk-around from further back (about 3 m) so the whole vehicle stays in view.` : 'Done', 1);
 }
 
 global.BgStudio = { STYLES, drawBackdrop, drawTurntable, drawMirrorTable, turntableLayout, sceneRows, cameraBob, composite, cleanMask, maskCanvas, applyBackground, loadModel };

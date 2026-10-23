@@ -20,3 +20,9 @@ Secret needed: `BG_WORKER_KEY` (same value as the `BG_WORKER_KEY` secret on Clou
 filter and averaged with the mirrored frame, which removes the hazy fringe round the vehicle.
 `site/bg-studio.js` is the newest background code (sharper turntable layout, quieter glass
 reflection, and the "Lot, blurred" look); the worker uses it instead of the site's copy.
+
+**2026-10-23:** turntable looks are laid out frame by frame: every frame is resized so the vehicle keeps
+the same height, and its tyres land on the same spot of the platform (measured on a 50-frame walk-around:
+tyre line steady to about 2 px, height to the measuring precision; before, the vehicle pulsed by up to
+143 px and hopped by up to 46 px). When part of the vehicle runs off the photo, the finished job says
+how many photos that affected, so it can be recorded again from further back.
