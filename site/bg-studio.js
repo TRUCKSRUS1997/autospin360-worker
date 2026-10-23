@@ -408,8 +408,8 @@ function fillGaps(vals) {
 //    and sink by ~40 px as it turns, which reads as bouncing.)
 //  - across: the vehicle's centre; where one end runs off the photo, the end that IS there plus half
 //    the vehicle's usual width at that angle, so it doesn't jump sideways.
-//  - platform: big enough, and the vehicle small enough, that every frame's footprint (its outline
-//    along the floor) sits inside the platform's oval.
+//  - platform: at its longest (side-on) the vehicle covers about 80% of the platform's width, and every
+//    frame's footprint (its outline along the floor) sits inside the platform's oval.
 // Measured on a 50-frame walk-around (1600x900): tyre line 2.2 px RMS (was 19.7, jumps to 75 px),
 // height 2.2 px RMS (was 17.8, jumps to 123 px), centre 1.2 px RMS where both ends are in the photo.
 function turntableLayout(masks, W, H) {
@@ -453,7 +453,12 @@ function turntableLayout(masks, W, H) {
   // sits a little in front of the platform's centre line (a quarter of the footprint's usual depth)
   const Dmed = pct(good.map((f, i) => f.D * sc[fr.indexOf(f)]), 0.5);
   const cx = W / 2;
-  let g = Math.min(1, H * 0.58 / Math.max(1, hMed)), rx = W * 0.47, ry = rx * 0.2, th = 3, cy = H * 0.7, place = null;
+  // the vehicle's longest reach from its centre, at the common size (where an end runs off the photo,
+  // its usual width at that angle)
+  const reach = Math.max(...fr.map((f, i) => { if (!f) return 0; const ww = (wS[i] || (f.R - f.L) * sc[i]) / sc[i];
+    const lo = f.cutL ? mid[i] - ww / 2 : f.L, hi = f.cutR ? mid[i] + ww / 2 : f.R; return Math.max(mid[i] - lo, hi - mid[i]) * sc[i]; }));
+  // like a real turntable shot: at its longest (side-on) the vehicle covers about 80% of the platform
+  let g = Math.min(1, H * 0.58 / Math.max(1, hMed), W * 0.47 * 0.8 / Math.max(1, reach)), rx = W * 0.47, ry = rx * 0.2, th = 3, cy = H * 0.7, place = null;
   for (let it = 0; it < 60; it++) {
     // the oval: as wide as the picture allows, depth from how far the footprint reaches into the picture
     rx = W * 0.47;
