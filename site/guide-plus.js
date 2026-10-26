@@ -25,7 +25,7 @@ const CSS = `
 .gp-line{position:absolute;left:0;right:0;height:0;border-top:2px dashed rgba(255,214,10,.95);filter:drop-shadow(0 1px 1px rgba(0,0,0,.8))}
 .gp-line.ok{border-top-color:rgba(48,209,88,.95)}
 .gp-tag{position:absolute;left:max(10px,env(safe-area-inset-left));transform:translateY(-125%);font-size:12px;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:6px;color:#ffd60a}
-.gp-hz{position:absolute;left:50%;top:50%;width:34%;height:0;border-top:3px solid #ff453a;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.gp-hz{position:absolute;left:50%;top:50%;width:34%;height:0;transform:translate(-50%,-50%);border-top:3px solid #ff453a;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
 .gp-hz.ok{border-top-color:#30d158}
 .gp-ref{position:absolute;left:50%;top:50%;width:34%;height:0;border-top:1px solid rgba(255,255,255,.45);transform:translate(-50%,-50%)}
 .gp-msg{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));background:rgba(0,0,0,.66);padding:7px 12px;border-radius:12px;max-width:min(38%,360px);font-size:14.5px}

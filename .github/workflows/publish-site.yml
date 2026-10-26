@@ -1,12 +1,12 @@
 name: Publish site files
 
-# Sends the site files in this repository (site/bg-studio.js, site/guide-plus.js) to the live
+# Sends the site files in this repository (site/bg-studio.js, guide.js, guide-plus.js) to the live
 # AutoSpin360 Worker on Cloudflare whenever they change on main. Needs the CF_API_TOKEN secret
 # (Cloudflare API token, Workers Scripts: Edit); until it's added this just says so and stops.
 on:
   push:
     branches: [main]
-    paths: ["site/bg-studio.js", "site/guide-plus.js", "scripts/deploy_site.py"]
+    paths: ["site/bg-studio.js", "site/guide.js", "site/guide-plus.js", "scripts/deploy_site.py"]
   workflow_dispatch:
     inputs:
       dry_run:

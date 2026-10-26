@@ -17,6 +17,7 @@ python scripts/deploy_site.py [--dry-run] [--bundle local_worker.js]
 import base64
 import email.parser
 import email.policy
+import hashlib
 import json
 import os
 import re
@@ -34,7 +35,16 @@ API = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/workers/scripts/
 # published path -> file in this repository. Only files listed here are ever published.
 SITE_FILES = {
     "/bg-studio.js": "site/bg-studio.js",      # background studio: steady turntable layout (2026-10-23)
-    "/guide-plus.js": "site/guide-plus.js",    # guided camera helper: guide lines, level, pace
+    "/guide.js": "site/guide.js",              # guided camera: starts on the 1x lens, clear Lens button (2026-10-26)
+    "/guide-plus.js": "site/guide-plus.js",    # guided camera helper: guide lines, level, coaching, pace
+}
+# The live version each change was made from (sha256). A file is only replaced while the site still has
+# that version (or already has ours), so a change made to the site some other way is never overwritten:
+# the publish stops and says which file. After merging such a change in here, update its fingerprint.
+BASE = {
+    "/bg-studio.js": "a110900b638b413a362b5741518aa668fda2ecb888128261ce27c525223c5e17",
+    "/guide.js": "a213e8551f74bfaed5a3df9b3d6c9910bd39fa5610c077e4636bc20794f15d17",
+    "/guide-plus.js": None,                    # new file
 }
 TYPES = {".js": "application/javascript; charset=utf-8", ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8"}
 # pages that get the camera helper, right after their guide.js
@@ -83,6 +93,11 @@ def rebuild(code):
         b64 = base64.b64encode(data).decode()
         ext = os.path.splitext(path)[1]
         old = assets.get(path)
+        if old and old.get("b64") != b64:
+            live = hashlib.sha256(base64.b64decode(old["b64"])).hexdigest()
+            if live != BASE.get(path):
+                raise RuntimeError(f"{path} on the site was changed since this update was made "
+                                   f"(live {live[:12]}); not overwriting it. Merge that change into {src} first.")
         if not old or old.get("b64") != b64:
             assets[path] = {"type": TYPES.get(ext, "application/octet-stream"), "b64": b64}
             changed.append(path + (" (new)" if not old else ""))
