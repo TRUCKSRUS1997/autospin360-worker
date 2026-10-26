@@ -1,0 +1,49 @@
+name: Publish site files
+
+# Sends the site files in this repository (site/bg-studio.js, site/guide-plus.js) to the live
+# AutoSpin360 Worker on Cloudflare whenever they change on main. Needs the CF_API_TOKEN secret
+# (Cloudflare API token, Workers Scripts: Edit); until it's added this just says so and stops.
+on:
+  push:
+    branches: [main]
+    paths: ["site/bg-studio.js", "site/guide-plus.js", "scripts/deploy_site.py"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only show what would change"
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+    steps:
+      - name: Token set up?
+        id: tok
+        run: |
+          if [ -z "$CF_API_TOKEN" ]; then echo "::notice::CF_API_TOKEN isn't set yet, so nothing was published."; echo "ok=no" >> "$GITHUB_OUTPUT"; else echo "ok=yes" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.tok.outputs.ok == 'yes'
+      - uses: actions/setup-python@v5
+        if: steps.tok.outputs.ok == 'yes'
+        with:
+          python-version: "3.11"
+      - name: Publish
+        if: steps.tok.outputs.ok == 'yes'
+        run: |
+          pip install requests==2.32.3
+          python scripts/deploy_site.py ${{ inputs.dry_run && '--dry-run' || '' }}
+      - name: Keep the previous version (for rolling back)
+        if: steps.tok.outputs.ok == 'yes' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-before
+          path: backup/worker-before.js
+          if-no-files-found: ignore
+          retention-days: 30

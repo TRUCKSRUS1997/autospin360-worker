@@ -26,3 +26,12 @@ the same height, and its tyres land on the same spot of the platform (measured o
 tyre line steady to under 1 px, height to the measuring precision; before, the vehicle pulsed by up to
 123 px and hopped by up to 75 px). The vehicle is sized to cover about 80% of the platform side-on. When part of the vehicle runs off the photo, the finished job says
 how many photos that affected, so it can be recorded again from further back.
+
+**Site publishing (2026-10-25):** `scripts/deploy_site.py` (run by the *Publish site files* workflow
+whenever `site/bg-studio.js` or `site/guide-plus.js` change) sends those files to the live AutoSpin360
+Worker on Cloudflare, keeping its photo bucket and every secret. It needs the `CF_API_TOKEN` secret
+(Cloudflare API token with Workers Scripts: Edit); until that exists the workflow just says so.
+
+`site/guide-plus.js` adds guide lines, a level, height/distance coaching and a pace check to the
+guided camera's walk-around recording (loaded on the dealer admin page after `guide.js`).
+
