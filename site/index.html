@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AutoSpin360</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="apple-touch-icon" href="/api/icon?size=192">
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AutoSpin360">
+<meta name="theme-color" content="#0a0b0d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css">
+<style>
+/* ---------- hero ---------- */
+.hero{position:relative; overflow:hidden; border-bottom:1px solid var(--line)}
+.hero::before{content:""; position:absolute; inset:0; background:
+  linear-gradient(180deg,transparent 60%,var(--bg) 100%),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 1px,transparent 1px 84px); pointer-events:none}
+.hero-in{position:relative; max-width:1240px; margin:0 auto; padding:56px 20px 48px; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); gap:40px; align-items:center}
+.dealer-logo{display:block; height:48px; max-width:220px; object-fit:contain; margin:0 0 22px}
+.hero h1{font-size:clamp(34px,5.4vw,64px); font-weight:700; letter-spacing:-.035em; line-height:1.02; margin:0 0 18px; background:linear-gradient(180deg,#fff 30%,#b8bcc4); -webkit-background-clip:text; background-clip:text; color:transparent}
+.lede{max-width:520px; margin:0 0 30px; font-size:clamp(15px,1.6vw,18px); line-height:1.6; color:var(--muted)}
+.hero-stats{display:flex; flex-wrap:wrap; gap:12px 36px}
+.hero-stats div{display:flex; flex-direction:column; gap:2px; padding-left:14px; border-left:1px solid var(--line2)}
+.hero-stats b{font:700 26px/1 var(--font-display); letter-spacing:-.02em}
+.hero-stats span{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.hero-art{position:relative; justify-self:center; width:min(100%,400px); aspect-ratio:1}
+.hero-art svg{width:100%; height:100%; overflow:visible}
+.hero-art .ring{fill:none; stroke:var(--line2); stroke-width:1}
+.hero-art .ring.a{stroke:color-mix(in srgb,var(--accent) 45%,var(--line2)); stroke-dasharray:2 7}
+.hero-art .ticks{stroke:var(--line2); stroke-width:1.4}
+.hero-art .sweep{transform-origin:200px 200px; animation:orbit 14s linear infinite}
+.hero-art .sweep2{transform-origin:200px 200px; animation:orbit 26s linear infinite reverse}
+.hero-art .glow{fill:url(#hg)}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.hero-art .center{position:absolute; inset:0; display:grid; place-items:center; text-align:center; pointer-events:none}
+.hero-art .center b{display:block; font:700 clamp(46px,7vw,74px)/1 var(--font-display); letter-spacing:-.04em}
+.hero-art .center b sup{font-size:.45em; color:var(--accent); vertical-align:super; margin-left:2px}
+.hero-art .center span{display:block; margin-top:6px; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--muted)}
+
+
+/* ---------- inventory layout, filters, toolbar ---------- */
+.inv{padding-top:30px}
+.inv-layout{display:grid; grid-template-columns:272px minmax(0,1fr); gap:30px; align-items:start}
+.filters{position:sticky; top:84px; max-height:calc(100vh - 104px); overflow:auto; padding:20px 18px; border-radius:var(--r-lg); border:1px solid var(--line); background:linear-gradient(180deg,var(--panel2),var(--panel)); box-shadow:var(--shadow-1)}
+.f-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+.f-head h2{font-size:17px; margin:0}
+.f-head button{border:0; background:none; color:var(--accent); font:600 13px var(--font-body); cursor:pointer; padding:6px 0}
+.f-x{display:none}
+.f-sec{padding:16px 0; border-top:1px solid var(--line)}
+.f-sec:first-of-type{border-top:0}
+.f-sec h3{font:600 11.5px var(--font-body); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 10px}
+.f-sec label{display:block; margin-bottom:10px}
+.f-sec label:last-child{margin-bottom:0}
+.f-sec label>span{display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px}
+.f-sec .input{min-height:42px; padding:8px 12px; font-size:14px; border-radius:11px}
+.f-pair{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.f-hint{margin:8px 0 0; font-size:12px; color:var(--faint)}
+.f-chips{display:flex; flex-wrap:wrap; gap:7px}
+.f-chips button{min-height:36px; padding:6px 13px; border-radius:999px; border:1px solid var(--line2); background:var(--bg2); color:var(--muted); font:500 13px var(--font-body); cursor:pointer; transition:all .2s var(--ease)}
+.f-chips button:hover{color:var(--text); border-color:var(--muted)}
+.f-chips button[aria-pressed="true"]{background:var(--text); color:var(--bg); border-color:var(--text); font-weight:600}
+.f-chips em{font-style:normal; font-size:11.5px; opacity:.9; margin-left:4px}
+.f-foot{display:none}
+.toolbar{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:stretch; margin-bottom:14px}
+.search{position:relative; display:block; min-width:0}
+.search svg{position:absolute; left:16px; top:50%; width:18px; height:18px; transform:translateY(-50%); color:var(--muted); pointer-events:none}
+.search input{width:100%; min-height:52px; padding:14px 48px 14px 46px; border:1px solid var(--line2); border-radius:16px; background:var(--panel); color:var(--text); font:400 16px var(--font-body); transition:border-color .2s,box-shadow .2s; -webkit-appearance:none; appearance:none}
+.search input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+.search kbd{position:absolute; right:14px; top:50%; transform:translateY(-50%); font:500 12px var(--font-body); color:var(--muted); border:1px solid var(--line2); border-radius:6px; padding:2px 7px; pointer-events:none}
+.toolbar select{width:auto; min-width:200px; min-height:52px; border-radius:16px; background-color:var(--panel)}
+.viewtog{display:inline-flex; padding:4px; border-radius:16px; border:1px solid var(--line2); background:var(--panel)}
+.viewtog button{width:44px; border:0; border-radius:12px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; transition:background .2s,color .2s}
+.viewtog button svg{width:20px; height:20px}
+.viewtog button[aria-pressed="true"]{background:var(--text); color:var(--bg)}
+.fbtn{display:none; align-items:center; justify-content:center; gap:8px; min-height:52px; padding:0 18px; border-radius:16px; border:1px solid var(--line2); background:var(--panel); color:var(--text); font:600 14px var(--font-body); cursor:pointer}
+.fbtn svg{width:18px; height:18px}
+.fbtn b{display:none; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--accent); color:var(--accent-ink); font-size:12px; line-height:20px; text-align:center}
+.pills{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px}
+.pills button{display:inline-flex; align-items:center; gap:8px; min-height:34px; padding:5px 8px 5px 13px; border-radius:999px; border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line2)); background:color-mix(in srgb,var(--accent) 9%,var(--panel)); color:var(--text); font:500 13px var(--font-body); cursor:pointer}
+.pills button i{display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,.1); font-style:normal; font-size:13px; line-height:1}
+.pills button:hover i{background:rgba(255,255,255,.2)}
+.resultbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:2px 0 16px; font-size:13.5px; color:var(--muted)}
+.resultbar button{border:0; background:none; color:var(--accent); font:600 13px var(--font-body); cursor:pointer; padding:6px 0}
+.more{display:flex; justify-content:center; margin:30px 0 0}
+.more .btn{min-width:240px}
+.skel-card{aspect-ratio:4/4.3}
+.sk-card{border-radius:var(--r-lg); border:1px solid var(--line); background:linear-gradient(180deg,var(--panel2),var(--panel)); overflow:hidden}
+.sk-img{aspect-ratio:4/3; background:var(--panel2)}
+.sk-b{padding:16px 16px 18px; display:grid; gap:10px}
+.sk-b i{display:block; height:12px; border-radius:6px; background:var(--line)}
+.sk-b .s1{width:38%}.sk-b .s2{width:72%; height:18px}.sk-b .s3{width:46%; height:20px}.sk-b .s4{width:88%}
+.sk-card .sk-img,.sk-card .sk-b i{position:relative; overflow:hidden}
+.sk-card .sk-img::after,.sk-card .sk-b i::after{content:""; position:absolute; inset:0; background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.07) 50%,transparent 70%); transform:translateX(-100%); animation:shimmer 1.4s infinite}
+.sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+.f-grab{display:none; width:44px; height:5px; border-radius:99px; background:var(--line2); margin:-6px auto 14px; touch-action:none}
+@media (max-width:980px){.f-grab{display:block}}
+.fback{display:none}
+@media (max-width:980px){
+  .inv-layout{grid-template-columns:1fr}
+  .toolbar{grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"s s s" "f o v"}
+  .toolbar .search{grid-area:s}
+  .fbtn{display:inline-flex; grid-area:f; white-space:nowrap; min-width:104px}
+  .toolbar select{grid-area:o; min-width:0; width:100%}
+  .viewtog{grid-area:v}
+  .search kbd{display:none}
+  .filters{position:fixed; left:0; right:0; bottom:0; top:auto; z-index:60; max-height:88vh; border-radius:26px 26px 0 0; padding:18px 18px calc(96px + var(--safe-b)); transform:translateY(105%); transition:transform .4s var(--ease); visibility:hidden}
+  .filters.open{transform:none; visibility:visible}
+  .fback{display:block; position:fixed; inset:0; z-index:55; background:rgba(4,5,7,.7); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); opacity:0; pointer-events:none; transition:opacity .3s}
+  .fback.open{opacity:1; pointer-events:auto}
+  .f-x{display:grid; place-items:center; width:36px; height:36px; border-radius:50%; border:1px solid var(--line2)!important; background:var(--bg2)!important; color:var(--text)!important; font-size:16px!important; padding:0!important}
+  .f-foot{display:block; position:absolute; left:0; right:0; bottom:0; padding:14px 18px calc(14px + var(--safe-b)); background:var(--panel); border-top:1px solid var(--line); border-radius:0}
+  .f-foot .btn{width:100%}
+}
+@media (max-width:860px){
+  .hero-in{grid-template-columns:1fr; padding:40px 20px 34px; gap:20px}
+  .hero-art{display:none}
+}
+@media (max-width:640px){ .hero-stats{gap:14px 24px} .hero-stats b{font-size:22px} .toolbar select{font-size:14px} }
+
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.6" opacity=".3"/><g class="arc"><path d="M16 4a12 12 0 0 1 12 12" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="28" cy="16" r="2.3" fill="var(--accent)"/></g><path d="M9.2 19.2l1.2-3.4a1.7 1.7 0 0 1 1.6-1.1h8a1.7 1.7 0 0 1 1.6 1.1l1.2 3.4v2.3H9.2z" fill="currentColor"/></svg>AutoSpin<span>360</span></a>
+  <nav><a href="/admin.html" class="cta">Dealer login</a></nav>
+</header>
+
+<section class="hero">
+  <div class="hero-in">
+    <div class="hero-copy rise">
+      <img id="dealerLogo" class="dealer-logo" alt="" hidden>
+      <p class="eyebrow">Interactive inventory</p>
+      <h1 id="invTitle">Browse inventory</h1>
+      <p class="lede">Spin every vehicle a full 360&deg;, step inside the cabin and take your time &mdash; before you ever set foot on the lot.</p>
+      <div class="hero-stats">
+        <div><b id="statCount">&ndash;</b><span>Vehicles</span></div>
+        <div><b>360&deg;</b><span>Exterior spin</span></div>
+        <div><b>Inside</b><span>Cabin views</span></div>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <svg viewBox="0 0 400 400" fill="none">
+        <defs><radialGradient id="hg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></radialGradient></defs>
+        <circle class="glow" cx="200" cy="200" r="200"/>
+        <circle class="ring" cx="200" cy="200" r="190"/>
+        <circle class="ring a" cx="200" cy="200" r="150"/>
+        <circle class="ring" cx="200" cy="200" r="110"/>
+        <g class="ticks" id="ticks"></g>
+        <g class="sweep"><path d="M200 10a190 190 0 0 1 190 190" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/><circle cx="390" cy="200" r="6" fill="var(--accent)"/></g>
+        <g class="sweep2"><circle cx="200" cy="50" r="4" fill="#fff" opacity=".85"/></g>
+      </svg>
+      <div class="center"><div><b>360<sup>&deg;</sup></b><span>Spin &middot; Explore</span></div></div>
+    </div>
+  </div>
+</section>
+
+<main class="wrap inv">
+  <div class="inv-layout">
+    <aside class="filters" id="filters" aria-label="Filter vehicles"><div class="f-grab" id="fGrab" aria-hidden="true"></div>
+      <div class="f-head"><h2>Filters</h2><span><button type="button" id="fReset">Reset all</button> <button type="button" class="f-x" id="fClose" aria-label="Close filters">&#10005;</button></span></div>
+      <div class="f-sec">
+        <label><span>Make</span><select class="input" id="fMake"></select></label>
+        <label><span>Model</span><select class="input" id="fModel"></select></label>
+      </div>
+      <div class="f-sec" id="secBody" hidden><h3>Body style</h3><div class="f-chips" id="fBody"></div></div>
+      <div class="f-sec" id="secPrice" hidden><h3>Price</h3>
+        <div class="f-pair"><input class="input" id="pMin" inputmode="numeric" placeholder="Min $" aria-label="Minimum price"><input class="input" id="pMax" inputmode="numeric" placeholder="Max $" aria-label="Maximum price"></div>
+        <p class="f-hint" id="pHint"></p>
+      </div>
+      <div class="f-sec" id="secOdo" hidden><h3>Mileage</h3><label><span>Maximum</span><select class="input" id="oMax"></select></label></div>
+      <div class="f-sec" id="secYear" hidden><h3>Year</h3><div class="f-pair"><select class="input" id="yMin" aria-label="Earliest year"></select><select class="input" id="yMax" aria-label="Latest year"></select></div></div>
+      <div class="f-foot"><button type="button" class="btn primary" id="fApply">Show <span id="fCount"></span> vehicles</button></div>
+    </aside>
+    <div class="fback" id="fBack"></div>
+
+    <section class="inv-main">
+      <div class="toolbar" id="toolbar" hidden>
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="Search year, make, model or VIN" autocomplete="off" aria-label="Search inventory">
+          <kbd>/</kbd>
+        </label>
+        <button type="button" class="fbtn" id="fOpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters <b id="fBadge">0</b></button>
+        <select class="input" id="sort" aria-label="Sort vehicles">
+          <option value="new">Newest listings</option>
+          <option value="priceAsc">Price: low to high</option>
+          <option value="priceDesc">Price: high to low</option>
+          <option value="odoAsc">Mileage: lowest first</option>
+          <option value="yearDesc">Year: newest first</option>
+          <option value="yearAsc">Year: oldest first</option>
+        </select>
+        <div class="viewtog" role="group" aria-label="Layout">
+          <button type="button" id="vGrid" aria-pressed="true" aria-label="Grid view" title="Grid view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg></button>
+          <button type="button" id="vList" aria-pressed="false" aria-label="List view" title="List view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="5.5" rx="1.5"/><rect x="3.5" y="14" width="17" height="5.5" rx="1.5"/></svg></button>
+        </div>
+      </div>
+      <div class="pills" id="pills" hidden></div>
+      <div class="resultbar" id="resultBar" hidden><span id="resultCount" aria-live="polite"></span></div>
+      <div id="list" class="grid" aria-busy="true">
+        <div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><div class="sk-card" aria-hidden="true"><div class="sk-img"></div><div class="sk-b"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div></div><span class="sr-only" role="status">Loading vehicles…</span>
+      </div>
+      <div class="more" id="moreWrap" hidden><button type="button" class="btn" id="more">Show more vehicles</button></div>
+    </section>
+  </div>
+</main>
+<footer class="powered"><span>Powered by</span><a href="/">AutoSpin360</a></footer>
+
+<script src="/inv-core.js"></script>
+<script>
+(async () => {
+  const I = window.AS360Inv, D = window.DEALER || {};
+  const $ = id => document.getElementById(id);
+  if (D.name) $('invTitle').textContent = D.name;
+  if (D.logo) { const l = $('dealerLogo'); l.src = D.logo; l.alt = D.name || ''; l.hidden = false; }
+  // dial ticks in the hero art
+  const tk = $('ticks'); let tks = '';
+  for (let i = 0; i < 72; i++) { const a = i * 5 * Math.PI / 180, big = i % 6 === 0, r2 = big ? 178 : 184; tks += `<line x1="${200 + Math.cos(a) * 190}" y1="${200 + Math.sin(a) * 190}" x2="${200 + Math.cos(a) * r2}" y2="${200 + Math.sin(a) * r2}" opacity="${big ? 1 : .5}"/>`; }
+  tk.innerHTML = tks;
+
+  const list = $('list');
+  let raw = [];
+  try { const r = await fetch('/api/vehicles'); if (!r.ok) throw new Error('HTTP ' + r.status); raw = await r.json(); }
+  catch (e) { list.className = ''; list.removeAttribute('aria-busy'); $('statCount').textContent = '\u2013'; list.innerHTML = '<div class="empty-state">We couldn\u2019t load the inventory just now.<br><button type="button" class="btn" id="retryInv" style="margin-top:14px">Try again</button></div>'; $('retryInv').onclick = () => location.reload(); return; }
+  list.removeAttribute('aria-busy');
+  if (!Array.isArray(raw) || !raw.length) { list.className = ''; list.innerHTML = '<div class="empty-state">No vehicles listed yet. Check back soon.</div>'; $('statCount').textContent = '0'; $('filters').hidden = true; return; }
+
+  const V = raw.filter(v => v && v.id).map((v, n) => I.normalize(v, n));
+  const PAGE = 18;
+  const S = { q: '', make: '', model: '', body: new Set(), pmin: null, pmax: null, omax: null, ymin: null, ymax: null, sort: 'new', view: 'grid', shown: PAGE };
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  // ---- what the data offers (filters only appear when some vehicle has that detail) ----
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+  const makes = uniq(V.map(v => v.make)).sort((a, b) => a.localeCompare(b));
+  const years = uniq(V.map(v => v.year)).sort((a, b) => b - a);
+  const bodies = uniq(V.map(v => v.body));
+  const prices = V.map(v => v.price).filter(x => x !== null), odos = V.map(v => v.odo).filter(x => x !== null);
+  const money = n => '$' + Math.round(n).toLocaleString('en-CA');
+
+  // ---- URL <-> state (so a filtered view can be shared or bookmarked) ----
+  const P = new URLSearchParams(location.search);
+  const numP = k => { const x = parseFloat(P.get(k)); return isFinite(x) ? x : null; };
+  S.q = P.get('q') || ''; S.make = makes.includes(P.get('make')) ? P.get('make') : '';
+  S.model = P.get('model') || '';
+  (P.get('body') || '').split(',').filter(b => bodies.includes(b)).forEach(b => S.body.add(b));
+  S.pmin = numP('pmin'); S.pmax = numP('pmax'); S.omax = numP('omax'); S.ymin = numP('ymin'); S.ymax = numP('ymax');
+  const sorts = ['new', 'priceAsc', 'priceDesc', 'odoAsc', 'yearDesc', 'yearAsc'];
+  S.sort = sorts.includes(P.get('sort')) ? P.get('sort') : (sorts.includes(store.get('as360.sort')) ? store.get('as360.sort') : 'new');
+  S.view = P.get('view') === 'list' || P.get('view') === 'grid' ? P.get('view') : (store.get('as360.view') === 'list' ? 'list' : 'grid');
+  const sync = () => {
+    const q = new URLSearchParams();
+    if (S.q) q.set('q', S.q); if (S.make) q.set('make', S.make); if (S.model) q.set('model', S.model);
+    if (S.body.size) q.set('body', [...S.body].join(',')); if (S.pmin !== null) q.set('pmin', S.pmin); if (S.pmax !== null) q.set('pmax', S.pmax);
+    if (S.omax !== null) q.set('omax', S.omax); if (S.ymin !== null) q.set('ymin', S.ymin); if (S.ymax !== null) q.set('ymax', S.ymax);
+    if (S.sort !== 'new') q.set('sort', S.sort); if (S.view === 'list') q.set('view', 'list');
+    const s = q.toString();
+    try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash); } catch (e) {}
+  };
+
+  // ---- filtering and sorting ----
+  const tokens = () => S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (v, tk) => {
+    if (tk.length && !tk.every(t => v.hay.includes(t))) return false;
+    if (S.make && v.make !== S.make) return false;
+    if (S.model && v.model !== S.model) return false;
+    if (S.body.size && !S.body.has(v.body)) return false;
+    if (S.pmin !== null && (v.price === null || v.price < S.pmin)) return false;
+    if (S.pmax !== null && (v.price === null || v.price > S.pmax)) return false;
+    if (S.omax !== null && (v.odo === null || v.odo > S.omax)) return false;
+    if (S.ymin !== null && (!v.year || v.year < S.ymin)) return false;
+    if (S.ymax !== null && (!v.year || v.year > S.ymax)) return false;
+    return true;
+  };
+  const asc = (f) => (a, b) => (f(a) === null ? 1 : f(b) === null ? -1 : f(a) - f(b)) || a.n - b.n;      // vehicles without the value go last
+  const desc = (f) => (a, b) => (f(a) === null ? 1 : f(b) === null ? -1 : f(b) - f(a)) || a.n - b.n;
+  const SORTS = {
+    new: (a, b) => (b.createdAt - a.createdAt) || a.n - b.n,
+    priceAsc: asc(v => v.price), priceDesc: desc(v => v.price), odoAsc: asc(v => v.odo),
+    yearDesc: desc(v => v.year || null), yearAsc: asc(v => v.year || null),
+  };
+
+  // ---- filter controls ----
+  const opt = (v, label, sel) => `<option value="${I.esc(v)}"${sel ? ' selected' : ''}>${I.esc(label)}</option>`;
+  const fMake = $('fMake'), fModel = $('fModel');
+  const drawMake = () => { fMake.innerHTML = opt('', 'All makes', !S.make) + makes.map(m => opt(m, `${m} (${V.filter(v => v.make === m).length})`, S.make === m)).join(''); };
+  const drawModel = () => {
+    const ms = uniq(V.filter(v => !S.make || v.make === S.make).map(v => v.model)).sort((a, b) => a.localeCompare(b));
+    if (S.model && !ms.includes(S.model)) S.model = '';
+    fModel.innerHTML = opt('', 'All models', !S.model) + ms.map(m => opt(m, m, S.model === m)).join('');
+  };
+  const BL = I.BODY;
+  const drawBody = () => {
+    $('secBody').hidden = bodies.length < 1;
+    $('fBody').innerHTML = bodies.map(b => `<button type="button" data-b="${b}" aria-pressed="${S.body.has(b)}">${BL[b]}<em>${V.filter(v => v.body === b).length}</em></button>`).join('');
+  };
+  $('secPrice').hidden = !prices.length;
+  if (prices.length) $('pHint').textContent = `${money(Math.min(...prices))} – ${money(Math.max(...prices))}`;
+  if (odos.length) {
+    $('secOdo').hidden = false;
+    const lo = Math.min(...odos), hi = Math.max(...odos);
+    const steps = [10000, 25000, 50000, 75000, 100000, 150000, 200000].filter(x => x >= lo && x < hi * 1.5);
+    if (!steps.includes(S.omax) && S.omax !== null) steps.push(S.omax);
+    steps.sort((a, b) => a - b);
+    $('oMax').innerHTML = opt('', 'Any mileage', S.omax === null) + steps.map(x => opt(x, `Under ${x.toLocaleString('en-CA')} km`, S.omax === x)).join('');
+  }
+  if (years.length > 1) {
+    $('secYear').hidden = false;
+    $('yMin').innerHTML = opt('', 'From', S.ymin === null) + [...years].reverse().map(y => opt(y, y, S.ymin === y)).join('');
+    $('yMax').innerHTML = opt('', 'To', S.ymax === null) + years.map(y => opt(y, y, S.ymax === y)).join('');
+  }
+  $('q').value = S.q; $('sort').value = S.sort;
+  if (S.pmin !== null) $('pMin').value = S.pmin; if (S.pmax !== null) $('pMax').value = S.pmax;
+  drawMake(); drawModel(); drawBody();
+
+  // ---- drawing the results ----
+  let current = [];
+  const grid = list;
+  const setView = v => { S.view = v; grid.className = 'grid' + (v === 'list' ? ' list' : ''); $('vGrid').setAttribute('aria-pressed', v === 'grid'); $('vList').setAttribute('aria-pressed', v === 'list'); };
+  const pill = (label, clear) => ({ label, clear });
+  const draw = (append) => {
+    const slice = current.slice(0, S.shown);
+    if (append) { const start = grid.querySelectorAll('.vcard').length; grid.insertAdjacentHTML('beforeend', current.slice(start, S.shown).map((v, j) => I.cardHTML(v, j)).join('')); }
+    else grid.innerHTML = slice.length ? slice.map((v, i) => I.cardHTML(v, i)).join('') : '<div class="empty-state" style="grid-column:1/-1">No vehicles match these filters.<br><button type="button" class="btn" id="emptyReset" style="margin-top:16px">Reset filters</button></div>';
+    $('moreWrap').hidden = current.length <= S.shown;
+    if (current.length > S.shown) $('more').textContent = `Show more (${current.length - S.shown} remaining)`;
+  };
+  const filterCount = () => (S.make ? 1 : 0) + (S.model ? 1 : 0) + S.body.size + (S.pmin !== null || S.pmax !== null ? 1 : 0) + (S.omax !== null ? 1 : 0) + (S.ymin !== null || S.ymax !== null ? 1 : 0);
+  const apply = () => {
+    const tk = tokens();
+    current = V.filter(v => matches(v, tk)).sort(SORTS[S.sort]);
+    S.shown = PAGE; draw(false);
+    $('resultCount').textContent = current.length === V.length ? `${V.length} vehicle${V.length === 1 ? '' : 's'}` : `${current.length} of ${V.length} vehicles`;
+    $('fCount').textContent = current.length;
+    const fc = filterCount(); $('fBadge').textContent = fc; $('fBadge').style.display = fc ? 'inline-block' : 'none';
+    // removable "active filter" pills
+    const pl = [];
+    if (S.q) pl.push(pill(`“${S.q}”`, () => { S.q = ''; $('q').value = ''; }));
+    if (S.make) pl.push(pill(S.make, () => { S.make = ''; S.model = ''; drawMake(); drawModel(); }));
+    if (S.model) pl.push(pill(S.model, () => { S.model = ''; drawModel(); }));
+    S.body.forEach(b => pl.push(pill(BL[b], () => { S.body.delete(b); drawBody(); })));
+    if (S.pmin !== null || S.pmax !== null) pl.push(pill(`${S.pmin !== null ? money(S.pmin) : 'Any'} – ${S.pmax !== null ? money(S.pmax) : 'Any'}`, () => { S.pmin = S.pmax = null; $('pMin').value = $('pMax').value = ''; }));
+    if (S.omax !== null) pl.push(pill(`Under ${S.omax.toLocaleString('en-CA')} km`, () => { S.omax = null; $('oMax').value = ''; }));
+    if (S.ymin !== null || S.ymax !== null) pl.push(pill(`${S.ymin || 'Any'} – ${S.ymax || 'Any'}`, () => { S.ymin = S.ymax = null; $('yMin').value = $('yMax').value = ''; }));
+    pills.hidden = !pl.length; pills.innerHTML = pl.map((p, i) => `<button type="button" data-i="${i}">${I.esc(p.label)} <i aria-hidden="true">&times;</i></button>`).join(''); pills._items = pl;
+    sync();
+  };
+  const pills = $('pills');
+  pills.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; pills._items[+b.dataset.i].clear(); apply(); });
+  const reset = () => { Object.assign(S, { q: '', make: '', model: '', pmin: null, pmax: null, omax: null, ymin: null, ymax: null }); S.body.clear(); $('q').value = ''; $('pMin').value = $('pMax').value = ''; $('oMax').value = ''; $('yMin').value = $('yMax').value = ''; drawMake(); drawModel(); drawBody(); apply(); };
+
+  // ---- events ----
+  let qt; $('q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value; apply(); }, 120); });
+  $('sort').addEventListener('change', e => { S.sort = e.target.value; store.set('as360.sort', S.sort); apply(); });
+  fMake.addEventListener('change', () => { S.make = fMake.value; S.model = ''; drawModel(); apply(); });
+  fModel.addEventListener('change', () => { S.model = fModel.value; apply(); });
+  $('fBody').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (!b) return; S.body.has(b.dataset.b) ? S.body.delete(b.dataset.b) : S.body.add(b.dataset.b); drawBody(); apply(); });
+  const money2 = el => { const n = I.num(el.value); return n !== null && n >= 0 ? n : null; };
+  let pt; const priceChange = () => { clearTimeout(pt); pt = setTimeout(() => { S.pmin = money2($('pMin')); S.pmax = money2($('pMax')); apply(); }, 250); };
+  $('pMin').addEventListener('input', priceChange); $('pMax').addEventListener('input', priceChange);
+  $('oMax').addEventListener('change', e => { S.omax = e.target.value === '' ? null : Number(e.target.value); apply(); });
+  $('yMin').addEventListener('change', e => { S.ymin = e.target.value === '' ? null : Number(e.target.value); apply(); });
+  $('yMax').addEventListener('change', e => { S.ymax = e.target.value === '' ? null : Number(e.target.value); apply(); });
+  $('fReset').addEventListener('click', reset);
+  grid.addEventListener('click', e => { if (e.target.closest('#emptyReset')) reset(); });
+  $('more').addEventListener('click', () => { S.shown += PAGE; draw(true); });
+  $('vGrid').addEventListener('click', () => { setView('grid'); store.set('as360.view', 'grid'); sync(); });
+  $('vList').addEventListener('click', () => { setView('list'); store.set('as360.view', 'list'); sync(); });
+  // phone: filters open as a sheet from the bottom
+  const fPanel = $('filters'), fBack = $('fBack');
+  let fReturn = null;
+  const openF = o => {
+    const mobile = matchMedia('(max-width: 980px)').matches;
+    fPanel.classList.toggle('open', o); fBack.classList.toggle('open', o); document.documentElement.style.overflow = o ? 'hidden' : '';
+    fPanel.style.transform = '';
+    if (mobile) { if (o) { fPanel.setAttribute('role', 'dialog'); fPanel.setAttribute('aria-modal', 'true'); fReturn = document.activeElement; setTimeout(() => $('fClose').focus(), 60); } else { fPanel.removeAttribute('role'); fPanel.removeAttribute('aria-modal'); if (fReturn && fReturn.focus) fReturn.focus(); } }
+  };
+  // swipe the handle or header down to close the sheet
+  (() => {
+    let y0 = null, dy = 0;
+    const start = e => { if (!fPanel.classList.contains('open') || !matchMedia('(max-width: 980px)').matches) return; y0 = e.clientY; dy = 0; fPanel.style.transition = 'none'; };
+    const move = e => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); fPanel.style.transform = 'translateY(' + dy + 'px)'; };
+    const end = () => { if (y0 === null) return; y0 = null; fPanel.style.transition = ''; if (dy > 90) openF(false); else fPanel.style.transform = ''; };
+    [$('fGrab'), fPanel.querySelector('.f-head')].forEach(h => { h.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; h.setPointerCapture(e.pointerId); start(e); }); h.addEventListener('pointermove', move); h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end); });
+  })();
+  $('fOpen').addEventListener('click', () => openF(true)); $('fClose').addEventListener('click', () => openF(false)); $('fApply').addEventListener('click', () => openF(false)); fBack.addEventListener('click', () => openF(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') openF(false);
+    if (e.key === '\x2f' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '')) { e.preventDefault(); $('q').focus(); }
+  });
+
+  $('toolbar').hidden = false; $('resultBar').hidden = false;
+  setView(S.view); apply();
+
+  // hero number counts up once
+  const sc = $('statCount'), total = V.length;
+  sc.textContent = total;                       // shown at once (the count-up below only runs when the tab is visible)
+  if (!(matchMedia('(prefers-reduced-motion: reduce)').matches || total < 3 || document.hidden)) { const t0 = performance.now(); const tick = t => { const k = Math.min(1, (t - t0) / 900); sc.textContent = Math.round(total * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+  setTimeout(() => { sc.textContent = total; }, 1100);
+})();
+</script>
+<script src="/compare.js?v=1"></script>
+<script src="/upright.js"></script>
+</body>
+</html>

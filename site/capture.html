@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0c0e"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>Capture Assistant | AutoSpin360</title>
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<style>
+:root{--bg:#0b0c0e;--panel:#17191e;--line:#2b2f36;--ink:#f4f2ee;--muted:#a0a5ae;--accent:#f2b705;--ink-a:#1a1400;--bad:#ff6b73;--warn:#ffb44a;--ok:#5fd68f}
+*{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.scr{display:none;min-height:100%;padding:max(16px,env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom))} .scr.on{display:block}
+h1{font-size:22px;margin:4px 0 12px} h2{font-size:17px;margin:0 0 8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin:0 0 12px}
+.btn{min-height:56px;padding:0 22px;border-radius:16px;border:1px solid var(--line);background:var(--panel);font-weight:700;font-size:17px}
+.btn.pri{background:var(--accent);color:var(--ink-a);border-color:transparent} .btn.dng{color:var(--bad)} .btn:disabled{opacity:.5} .btn.full{width:100%}
+.muted{color:var(--muted);font-size:14px}
+.secs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sec{position:relative;text-align:left;padding:12px;border-radius:16px;border:2px solid var(--line);background:var(--panel);min-height:92px}
+.sec.next{border-color:var(--accent)} .sec.done{border-color:var(--ok)}
+.sec b{display:block;font-size:15px} .sec small{color:var(--muted)} .sec .st{position:absolute;right:10px;top:10px;font-size:18px}
+.sec svg{width:44px;height:44px;float:right;margin:0 0 4px 6px}
+.prog{height:10px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden} .prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+/* camera */
+#cam{position:fixed;inset:0;background:#000;display:none;z-index:50} #cam.on{display:block}
+#cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hud{position:absolute;left:0;right:0;display:flex;gap:8px;align-items:center;padding:max(10px,env(safe-area-inset-top)) 12px 0;pointer-events:none;flex-wrap:wrap}
+.chip{pointer-events:auto;min-height:40px;padding:0 12px;border-radius:99px;background:rgba(10,12,14,.72);border:1px solid rgba(255,255,255,.18);display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.chip.rec{color:#fff;background:rgba(220,40,50,.85)} .chip.b{background:rgba(255,255,255,.14)} .chip[aria-pressed=true]{background:var(--accent);color:var(--ink-a)}
+.warns{position:absolute;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 56px);display:grid;gap:6px;pointer-events:none}
+.warns div{padding:9px 12px;border-radius:12px;background:rgba(10,12,14,.8);border-left:5px solid var(--warn);font-weight:600;font-size:15px}
+.warns div.bad{border-color:var(--bad)} .warns div.ok{border-color:var(--ok)}
+.ctl{position:absolute;left:0;right:0;bottom:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75));display:grid;gap:10px}
+.row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.recbtn{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#d8232f;padding:0;position:relative}
+.recbtn.on::after{content:"";position:absolute;inset:20px;border-radius:7px;background:#fff} .recbtn:disabled{opacity:.4}
+.tip{padding:10px 12px;border-radius:12px;background:rgba(10,12,14,.78);font-size:15px;text-align:center}
+.q{display:flex;gap:4px;align-items:flex-end;height:18px} .q i{width:5px;background:rgba(255,255,255,.3);border-radius:2px} .q i.on{background:var(--ok)}
+#rev{position:fixed;inset:0;z-index:60;background:#000;display:none;flex-direction:column} #rev.on{display:flex} #rev video{flex:1;min-height:0;width:100%;object-fit:contain}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);padding:12px 16px;border-radius:12px;background:#222;z-index:99;display:none;max-width:92vw;text-align:center}
+</style></head>
+<body>
+<div class="scr on" id="home">
+  <h1>Capture Assistant</h1>
+  <div id="vsel" class="card" hidden><h2>Which vehicle?</h2><select id="vlist" style="width:100%;min-height:52px;font-size:17px;border-radius:12px;background:#111317;color:#fff;border:1px solid var(--line);padding:0 10px"></select></div>
+  <p class="muted" id="vname"></p>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b id="count">0 of 8</b><span class="muted" id="nextTxt"></span></div><div class="prog" style="margin-top:8px"><i id="allProg"></i></div></div>
+  <div class="secs" id="secs"></div>
+  <div class="card" id="pend" hidden style="margin-top:12px"><h2>Waiting to upload</h2><div id="pendList"></div></div>
+  <div class="card" style="margin-top:12px"><h2>Status</h2><p class="muted" id="finalMsg">Record all 8 sections. Start each one where the previous one ended so they overlap.</p></div>
+  <p class="muted" id="env"></p>
+</div>
+<div id="cam" role="dialog" aria-label="Camera">
+  <video id="v" playsinline muted autoplay></video><canvas id="ov"></canvas>
+  <div class="hud"><button class="chip b" id="back" aria-label="Back">‹ Back</button><span class="chip" id="secName"></span><span class="chip rec" id="timer" hidden>● 0:00</span><span class="chip" id="qchip"><span class="q" id="qbars"><i></i><i></i><i></i><i></i></span><span id="qtxt">Quality</span></span><span class="chip" id="orient"></span></div>
+  <div class="warns" id="warns" aria-live="polite"></div>
+  <div class="ctl">
+    <div class="tip" id="tip"></div>
+    <div class="prog" id="rprog" hidden><i></i></div>
+    <div class="row" id="lenses" role="group" aria-label="Camera lens"></div>
+    <div class="row"><button class="chip" id="detBtn" aria-pressed="false">Vehicle detection: off</button><button class="recbtn" id="rec" aria-label="Start recording"></button><button class="chip" id="gyroBtn" aria-pressed="false">Motion sensors</button></div>
+  </div>
+</div>
+<div id="rev"><video id="rv" controls playsinline></video><div style="padding:14px;display:grid;gap:10px" id="revBox"><div id="revInfo" class="muted"></div><div class="prog" id="upProg" hidden><i></i></div><div class="row"><button class="btn dng" id="retake">Retake</button><button class="btn pri" id="use">Use this clip</button></div></div></div>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s), esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SECTIONS = [
+  ['front', 'Front', 'Stand 1–2 m in front. Slowly move left to right across the whole front, camera at headlight height.', 0],
+  ['front-left', 'Front-left quarter', 'Start where the front section ended. Walk from the front toward the driver-side wheel. Keep the same height.', 315],
+  ['driver', 'Driver side', 'Walk slowly from front wheel to rear wheel along the driver side. Keep the same distance.', 270],
+  ['rear-left', 'Rear-left quarter', 'Continue from the driver-side rear wheel around the rear-left corner.', 225],
+  ['rear', 'Rear', 'Move slowly across the whole rear, same camera height.', 180],
+  ['rear-right', 'Rear-right quarter', 'Continue from the rear toward the passenger-side rear wheel.', 135],
+  ['passenger', 'Passenger side', 'Walk slowly from rear wheel to front wheel along the passenger side.', 90],
+  ['front-right', 'Front-right quarter', 'Finish around the front-right corner, ending where you started the front section.', 45],
+];
+const MIN_SWEEP = 25;                       // degrees the phone must travel around the car for a section to count as covering it
+const MAX_BYTES = 58 * 1048576, MAX_SECS = 90, TARGET_SECS = 25;
+const qs = new URLSearchParams(location.search); let vid = qs.get('id'), veh = null, caps = {}, cur = -1;
+const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 4500); };
+async function api(p, o) { const r = await fetch(p, Object.assign({ credentials: 'same-origin', headers: { 'content-type': 'application/json' } }, o)); const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.status = r.status; throw e; } return j; }
+const icon = deg => `<svg viewBox="0 0 44 44"><rect x="15" y="8" width="14" height="28" rx="6" fill="none" stroke="#a0a5ae" stroke-width="2"/><g transform="rotate(${deg} 22 22)"><circle cx="22" cy="2.5" r="3.4" fill="#f2b705"/></g></svg>`;
+
+/* ---------------- IndexedDB: a recording survives a dropped connection or a reload until it has uploaded ---------------- */
+const idb = { db: null, async open() { if (this.db) return this.db; this.db = await new Promise((ok, bad) => { const r = indexedDB.open('as360-capture', 1); r.onupgradeneeded = () => r.result.createObjectStore('clips'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); return this.db; },
+  async put(k, v) { const d = await this.open(); return new Promise((ok, bad) => { const t = d.transaction('clips', 'readwrite'); t.objectStore('clips').put(v, k); t.oncomplete = ok; t.onerror = () => bad(t.error); }); },
+  async del(k) { const d = await this.open(); return new Promise(ok => { const t = d.transaction('clips', 'readwrite'); t.objectStore('clips').delete(k); t.oncomplete = ok; t.onerror = ok; }); },
+  async all() { const d = await this.open(); return new Promise(ok => { const out = []; const t = d.transaction('clips'); t.objectStore('clips').openCursor().onsuccess = e => { const c = e.target.result; if (c) { out.push([c.key, c.value]); c.continue(); } else ok(out); }; t.onerror = () => ok([]); }); } };
+
+/* ---------------- home ---------------- */
+async function init() {
+  $('#env').textContent = (window.isSecureContext ? '' : 'This page must be opened over https for the camera to work. ') + (window.MediaRecorder ? '' : 'This browser cannot record video. ');
+  try {
+    if (!vid) { const l = await api('/api/vehicles'); const a = Array.isArray(l) ? l : (l.vehicles || []); $('#vsel').hidden = false; $('#vlist').innerHTML = '<option value="">Choose a vehicle…</option>' + a.map(v => `<option value="${esc(v.id)}">${esc([v.year, v.make, v.model].filter(Boolean).join(' ') || v.id)}</option>`).join(''); $('#vlist').onchange = e => { if (e.target.value) { location.search = '?id=' + encodeURIComponent(e.target.value); } }; $('#secs').innerHTML = ''; return; }
+    veh = await api('/api/vehicle?id=' + encodeURIComponent(vid)); caps = veh.captures || {};
+    await api('/api/storage').catch(e => { if (e.status === 401) throw e; });
+  } catch (e) { if (e.status === 401) { $('#finalMsg').innerHTML = 'Please <a href="/admin.html" style="color:var(--accent)">sign in on the dashboard</a> first, then come back here.'; return; } $('#finalMsg').textContent = 'Could not load: ' + e.message; return; }
+  $('#vname').textContent = [veh.year, veh.make, veh.model, veh.trim].filter(Boolean).join(' ') || vid;
+  drawHome(); loadPending();
+}
+function drawHome() {
+  const done = SECTIONS.filter(s => caps[s[0]]).length, next = SECTIONS.findIndex(s => !caps[s[0]]);
+  $('#count').textContent = done + ' of 8'; $('#allProg').style.width = done / 8 * 100 + '%'; $('#nextTxt').textContent = next > -1 ? 'Next: ' + SECTIONS[next][1] : 'All recorded';
+  $('#secs').innerHTML = SECTIONS.map((s, i) => { const c = caps[s[0]]; return `<button class="sec ${c ? 'done' : i === next ? 'next' : ''}" data-i="${i}" aria-label="${s[1]}${c ? ', recorded. Tap to retake' : ''}">${icon(s[3])}<span class="st">${c ? '✓' : ''}</span><b>${s[1]}</b><small>${c ? Math.round(c.seconds) + ' s · ' + (c.sweep ? Math.round(c.sweep) + '° swept' : 'no sensor data') + ' · ' + (c.status === 'done' ? 'processed' : c.status === 'failed' ? 'failed' : c.status === 'processing' ? 'processing' : 'waiting to process') : i === next ? 'Record this next' : 'Not recorded'}</small></button>`; }).join('');
+  document.querySelectorAll('.sec').forEach(b => b.onclick = () => openCam(+b.dataset.i));
+  const low = SECTIONS.filter(s => caps[s[0]] && caps[s[0]].sweep && caps[s[0]].sweep < MIN_SWEEP).map(s => s[1]);
+  $('#finalMsg').innerHTML = done < 8 ? `Record all 8 sections (${8 - done} left). Start each section where the previous one ended so they overlap.` : low.length ? `All 8 recorded, but these swept very little and may leave gaps: <b>${esc(low.join(', '))}</b>. Retake them.` : 'All 8 sections are recorded and saved as originals. Frame extraction runs next in the processor, then you review and approve the 360 in Media.';
+}
+async function loadPending() {
+  const all = (await idb.all().catch(() => [])).filter(([k, v]) => v && v.vid === vid); $('#pend').hidden = !all.length;
+  $('#pendList').innerHTML = all.map(([k, v]) => `<div class="row" style="justify-content:space-between;margin:6px 0"><span>${esc(SECTIONS.find(s => s[0] === v.sec)[1])} · ${(v.blob.size / 1048576).toFixed(1)} MB</span><button class="btn" data-r="${esc(k)}" style="min-height:44px;font-size:15px">Upload now</button></div>`).join('');
+  document.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => { const rec = (await idb.all()).find(x => x[0] === b.dataset.r); if (rec) { b.disabled = true; try { await uploadClip(rec[1], rec[0]); toast('Uploaded.'); drawHome(); } catch (e) { toast('Still could not upload: ' + e.message); } b.disabled = false; loadPending(); } });
+}
+
+/* ---------------- camera ---------------- */
+const S = { stream: null, devs: [], track: null, rec: null, chunks: [], bytes: 0, t0: 0, mime: '', recording: false, sweep: 0, lastHead: null, headOk: false, gyro: false, det: null, detOn: false, tilt: 0, pitch: 0, metrics: [], warnSet: new Map(), timer: 0, analyze: 0, prev: null };
+const vEl = $('#v'), ov = $('#ov'), octx = ov.getContext('2d'), work = document.createElement('canvas'); work.width = 160; work.height = 90; const wctx = work.getContext('2d', { willReadFrequently: true });
+const lensName = d => { const l = (d.label || '').toLowerCase(); return /ultra/.test(l) ? '0.5×' : /tele/.test(l) ? 'Zoom' : /back|rear|environment/.test(l) ? '1×' : /front|user/.test(l) ? 'Selfie' : (d.label || 'Camera'); };
+async function startStream(deviceId) {
+  if (S.stream) S.stream.getTracks().forEach(t => t.stop());
+  const base = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+  const c = { audio: false, video: deviceId ? Object.assign({ deviceId: { exact: deviceId } }, base) : Object.assign({ facingMode: { ideal: 'environment' } }, base) };
+  S.stream = await navigator.mediaDevices.getUserMedia(c); S.track = S.stream.getVideoTracks()[0]; vEl.srcObject = S.stream; await vEl.play().catch(() => {});
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput'); S.devs = devs;
+  const cur = S.track.getSettings().deviceId; const back = devs.filter(d => !/front|user|selfie/i.test(d.label || ''));
+  const wrap = $('#lenses'); wrap.innerHTML = '';
+  const capab = S.track.getCapabilities ? S.track.getCapabilities() : {};
+  if (back.length > 1) back.forEach(d => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = lensName(d); b.setAttribute('aria-pressed', String(d.deviceId === cur)); b.setAttribute('aria-label', 'Use ' + (d.label || 'this camera')); b.onclick = () => switchLens(d.deviceId); wrap.appendChild(b); });
+  else if (capab.zoom && capab.zoom.min < 1) [capab.zoom.min, 1].forEach(z => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = (Math.round(z * 10) / 10) + '×'; b.onclick = async () => { try { await S.track.applyConstraints({ advanced: [{ zoom: z }] }); wrap.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); } catch (e) { toast('This camera cannot change zoom.'); } }; wrap.appendChild(b); });
+  $('#lenses').hidden = !wrap.children.length;
+  const st = S.track.getSettings(); S.res = st.width + '×' + st.height + ' @' + Math.round(st.frameRate || 0);
+}
+async function switchLens(id) { if (S.recording) { toast('Stop recording before changing lens.'); return; } try { await startStream(id); } catch (e) { toast('Could not switch lens: ' + e.message); } }
+async function openCam(i) {
+  cur = i; const sec = SECTIONS[i]; $('#secName').textContent = sec[1]; $('#tip').textContent = sec[2]; $('#cam').classList.add('on'); S.warnSet.clear(); renderWarns();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { closeCam(); toast('Camera is not available. Open this page in Safari over https.'); return; }
+  try {
+    // 0.5x first: the iPhone Ultra Wide shows up as its own camera once permission is granted
+    await startStream(); const ultra = S.devs.find(d => /ultra/i.test(d.label || '')); if (ultra && S.track.getSettings().deviceId !== ultra.deviceId) await startStream(ultra.deviceId);
+  } catch (e) { closeCam(); const m = { NotAllowedError: 'Camera permission was denied. In iPhone Settings → Safari → Camera, choose Allow, then reload.', NotFoundError: 'No camera was found on this device.', NotReadableError: 'The camera is in use by another app.', OverconstrainedError: 'That camera is not available.' }[e.name]; toast(m || ('Camera error: ' + e.message)); return; }
+  $('#env').textContent = ''; if (!window.MediaRecorder) { $('#rec').disabled = true; toast('This browser cannot record video.'); }
+  S.analyze = setInterval(analyzeFrame, 350); orient(); addEventListener('resize', orient);
+}
+function closeCam() { clearInterval(S.analyze); clearInterval(S.timer); if (S.recording) stopRec(true); if (S.stream) S.stream.getTracks().forEach(t => t.stop()); S.stream = null; $('#cam').classList.remove('on'); removeEventListener('resize', orient); window.removeEventListener('deviceorientation', onOri); window.removeEventListener('devicemotion', onMotion); S.gyro = false; $('#gyroBtn').setAttribute('aria-pressed', 'false'); }
+$('#back').onclick = closeCam;
+function orient() { const land = innerWidth > innerHeight; $('#orient').textContent = land ? '▭ Landscape' : '▯ Portrait'; if (!land) warn('orient', 'Turn the phone sideways for the best result.', 'warn'); else warn('orient', null); }
+
+/* ---------------- live checks (all measured on the real video image) ---------------- */
+function warn(k, txt, lvl) { if (txt) S.warnSet.set(k, [txt, lvl || 'warn']); else S.warnSet.delete(k); renderWarns(); }
+function renderWarns() { const w = $('#warns'), a = [...S.warnSet.values()].sort((x, y) => (y[1] === 'bad') - (x[1] === 'bad')).slice(0, 3); w.innerHTML = a.map(x => `<div class="${x[1]}">${esc(x[0])}</div>`).join(''); }
+function analyzeFrame() {
+  if (!vEl.videoWidth) return;
+  wctx.drawImage(vEl, 0, 0, 160, 90); const d = wctx.getImageData(0, 0, 160, 90).data, n = 160 * 90; const g = new Float32Array(n); let sum = 0;
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) { const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; g[j] = y; sum += y; }
+  const mean = sum / n; let lap = 0; for (let y = 1; y < 89; y++) for (let x = 1; x < 159; x++) { const k = y * 160 + x, l = 4 * g[k] - g[k - 1] - g[k + 1] - g[k - 160] - g[k + 160]; lap += l * l; } lap /= (88 * 158);
+  let diff = 0; if (S.prev) { for (let i = 0; i < n; i += 3) diff += Math.abs(g[i] - S.prev[i]); diff /= (n / 3); } S.prev = g;
+  let clipHi = 0, clipLo = 0; for (let i = 0; i < n; i++) { if (g[i] > 245) clipHi++; else if (g[i] < 8) clipLo++; }
+  const m = { mean, sharp: lap, move: diff, hi: clipHi / n, lo: clipLo / n, tilt: S.tilt, t: Date.now() };
+  S.metrics.push(m); if (S.metrics.length > 400) S.metrics.shift();
+  // thresholds are measured values with plain wording; they are starting points that can be tuned after real use
+  warn('dark', mean < 45 ? 'Too dark. Move to better light or turn on lights.' : null, 'bad');
+  warn('bright', (mean > 215 || m.hi > 0.35) ? 'Too bright or glare. Change angle to avoid direct sun.' : null);
+  warn('blur', lap < 18 && diff > 6 ? 'Motion blur. Hold the phone steadier and walk slower.' : lap < 10 ? 'Image looks soft. Clean the lens or let it focus.' : null);
+  warn('fast', diff > 22 ? 'Moving too fast. Slow down.' : null);
+  if (S.gyro && Math.abs(S.tilt) > 6) warn('tilt', 'Camera tilted ' + Math.round(Math.abs(S.tilt)) + '°. Level the phone.'); else warn('tilt', null);
+  if (S.gyro && Math.abs(S.pitch) > 25) warn('pitch', S.pitch > 0 ? 'Camera pointing up. Lower the angle.' : 'Camera pointing down. Raise the angle.'); else warn('pitch', null);
+  // overall quality indicator
+  let q = 4; if (mean < 45 || mean > 215) q--; if (lap < 18) q--; if (diff > 22) q--; if (S.gyro && Math.abs(S.tilt) > 6) q--; q = Math.max(0, q);
+  document.querySelectorAll('#qbars i').forEach((b, i) => { b.className = i < q ? 'on' : ''; b.style.height = (6 + i * 4) + 'px'; }); $('#qtxt').textContent = ['Poor', 'Poor', 'Fair', 'Good', 'Good'][q] + ' · ' + (S.res || '');
+  if (S.detOn && S.det) detect();
+}
+/* motion sensors (iOS asks for permission on a tap) */
+function onOri(e) { const h = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.alpha != null ? 360 - e.alpha : null); if (h == null) return; S.headOk = true;
+  if (S.recording) { if (S.lastHead != null) { let d = h - S.lastHead; if (d > 180) d -= 360; if (d < -180) d += 360; S.sweep += Math.abs(d) < 40 ? Math.abs(d) : 0; } } S.lastHead = h; S.pitchRaw = e.beta; }
+function onMotion(e) { const a = e.accelerationIncludingGravity; if (!a || a.x == null) return; const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+  // roll relative to the horizon in the current screen orientation; pitch from the forward axis
+  const gx = a.x, gy = a.y, gz = a.z; let roll; if (Math.abs(ang) === 90) roll = Math.atan2(gy, gx) * 180 / Math.PI; else roll = Math.atan2(gx, gy) * 180 / Math.PI;
+  const r = Math.abs(ang) === 90 ? (Math.abs(roll) > 90 ? 180 - Math.abs(roll) : Math.abs(roll)) * Math.sign(roll) : (Math.abs(roll) > 90 ? 180 - Math.abs(roll) : Math.abs(roll)) * Math.sign(roll); S.tilt = isFinite(r) ? r : 0; S.pitch = Math.atan2(gz, Math.hypot(gx, gy)) * 180 / Math.PI; }
+$('#gyroBtn').onclick = async () => {
+  if (S.gyro) { S.gyro = false; window.removeEventListener('deviceorientation', onOri); window.removeEventListener('devicemotion', onMotion); $('#gyroBtn').setAttribute('aria-pressed', 'false'); warn('tilt', null); warn('pitch', null); return; }
+  try { for (const C of [window.DeviceOrientationEvent, window.DeviceMotionEvent]) if (C && typeof C.requestPermission === 'function') { const r = await C.requestPermission(); if (r !== 'granted') throw new Error('denied'); } } catch (e) { toast('Motion sensor permission was not granted. Tilt and sweep tracking are off.'); return; }
+  if (!('DeviceOrientationEvent' in window)) { toast('This device has no motion sensors.'); return; }
+  S.gyro = true; window.addEventListener('deviceorientation', onOri); window.addEventListener('devicemotion', onMotion); $('#gyroBtn').setAttribute('aria-pressed', 'true'); toast('Tilt and sweep tracking on.');
+};
+/* ---------------- vehicle detection (open COCO-SSD model, loaded only when the user turns it on) ---------------- */
+const CDN = ['https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js', 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js'];
+const loadScript = u => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = u; s.onload = ok; s.onerror = () => bad(new Error('Could not download ' + u.split('/').pop())); document.head.appendChild(s); });
+$('#detBtn').onclick = async () => {
+  if (S.detOn) { S.detOn = false; $('#detBtn').setAttribute('aria-pressed', 'false'); $('#detBtn').textContent = 'Vehicle detection: off'; octx.clearRect(0, 0, ov.width, ov.height); ['crop', 'close', 'obst', 'nodet'].forEach(k => warn(k, null)); return; }
+  $('#detBtn').textContent = 'Loading model…';
+  try { if (!S.det) { for (const u of CDN) if (!document.querySelector(`script[src="${u}"]`)) await loadScript(u); S.det = await cocoSsd.load({ base: 'lite_mobilenet_v2' }); } S.detOn = true; $('#detBtn').setAttribute('aria-pressed', 'true'); $('#detBtn').textContent = 'Vehicle detection: on'; }
+  catch (e) { $('#detBtn').textContent = 'Vehicle detection: off'; toast('Detection model could not load (' + e.message + '). Lighting, sharpness, movement and tilt checks still work.'); }
+};
+let detBusy = false;
+async function detect() {
+  if (detBusy || !vEl.videoWidth) return; detBusy = true;
+  try {
+    const preds = await S.det.detect(vEl, 10), W = vEl.videoWidth, H = vEl.videoHeight;
+    const cars = preds.filter(p => ['car', 'truck', 'bus'].includes(p.class) && p.score > 0.4).sort((a, b) => b.bbox[2] * b.bbox[3] - a.bbox[2] * a.bbox[3]);
+    // overlay in the video's displayed rectangle (object-fit: contain)
+    ov.width = innerWidth * devicePixelRatio; ov.height = innerHeight * devicePixelRatio; octx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); octx.clearRect(0, 0, innerWidth, innerHeight);
+    const s = Math.min(innerWidth / W, innerHeight / H), ox = (innerWidth - W * s) / 2, oy = (innerHeight - H * s) / 2;
+    if (!cars.length) { warn('nodet', 'No vehicle found in view.', 'warn'); ['crop', 'close', 'obst'].forEach(k => warn(k, null)); return; } warn('nodet', null);
+    const [x, y, w, h] = cars[0].bbox; const m = 0.02, L = x < W * m, R = x + w > W * (1 - m), T = y < H * m, B = y + h > H * (1 - m);
+    octx.lineWidth = 3; octx.strokeStyle = (T || B) ? '#ffb44a' : '#5fd68f'; octx.strokeRect(ox + x * s, oy + y * s, w * s, h * s); octx.fillStyle = octx.strokeStyle; octx.font = '600 14px system-ui'; octx.fillText('vehicle ' + Math.round(cars[0].score * 100) + '%', ox + x * s + 6, oy + y * s + 18);
+    // At 1–2 m the car will not fit sideways, so left/right edge contact is expected. Top/bottom contact means the roof or wheels are cut off.
+    warn('crop', T ? 'Roof is cut off. Tilt the phone up a little or step back.' : B ? 'Wheels/bumper cut off at the bottom. Tilt down a little or lower the camera.' : null);
+    warn('close', h > H * 0.97 ? 'Too close. Move slightly backward.' : null);
+    const car = cars[0], inter = (a, b) => Math.max(0, Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]));
+    const blockers = preds.filter(p => p !== car && p.score > 0.5 && ['person', 'car', 'truck', 'bicycle', 'motorcycle'].includes(p.class) && inter(p.bbox, car.bbox) > 0.25 * p.bbox[2] * p.bbox[3] && p.bbox[2] * p.bbox[3] > 0.04 * W * H);
+    warn('obst', blockers.length ? 'Something is in front of the vehicle (' + blockers[0].class + '). Wait or move.' : null);
+    S.lastDet = { box: [x / W, y / H, w / W, h / H], T, B, L, R };
+  } catch (e) { /* skip this frame */ } finally { detBusy = false; }
+}
+
+/* ---------------- recording ---------------- */
+function pickMime() { for (const m of ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m; return ''; }
+$('#rec').onclick = () => S.recording ? stopRec(false) : startRec();
+function startRec() {
+  if (!S.stream) return; S.mime = pickMime(); let r; try { r = new MediaRecorder(S.stream, Object.assign(S.mime ? { mimeType: S.mime } : {}, { videoBitsPerSecond: 5e6 })); } catch (e) { toast('Could not start recording: ' + e.message); return; }
+  S.rec = r; S.chunks = []; S.bytes = 0; S.sweep = 0; S.lastHead = null; S.metrics = []; S.t0 = Date.now(); S.recording = true; S.cancel = false;
+  r.ondataavailable = e => { if (e.data && e.data.size) { S.chunks.push(e.data); S.bytes += e.data.size; } if (S.bytes > MAX_BYTES && S.recording) { toast('Reached the size limit, stopping.'); stopRec(false); } };
+  r.onstop = onStopped; r.start(1000);
+  $('#rec').classList.add('on'); $('#rec').setAttribute('aria-label', 'Stop recording'); $('#timer').hidden = false; $('#rprog').hidden = false; $('#back').hidden = true;
+  S.timer = setInterval(() => { const s = (Date.now() - S.t0) / 1000; $('#timer').textContent = '● ' + Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') + (S.headOk ? ' · ' + Math.round(S.sweep) + '°' : ''); $('#rprog i').style.width = Math.min(100, s / TARGET_SECS * 100) + '%'; if (s >= MAX_SECS) stopRec(false); }, 250);
+}
+function stopRec(cancel) { if (!S.recording) return; S.cancel = !!cancel; S.recording = false; clearInterval(S.timer); try { S.rec.stop(); } catch (e) {} $('#rec').classList.remove('on'); $('#rec').setAttribute('aria-label', 'Start recording'); $('#timer').hidden = true; $('#rprog').hidden = true; $('#back').hidden = false; }
+let pendingClip = null;
+function summarize() {
+  const m = S.metrics; if (!m.length) return { quality: 0, warnings: ['No frames were analysed.'] }; const avg = f => m.reduce((a, x) => a + f(x), 0) / m.length, share = f => m.filter(f).length / m.length;
+  const w = []; if (share(x => x.mean < 45) > .2) w.push('Often too dark'); if (share(x => x.mean > 215 || x.hi > .35) > .2) w.push('Often overexposed'); if (share(x => x.sharp < 18 && x.move > 6) > .15) w.push('Motion blur in parts'); if (share(x => x.move > 22) > .15) w.push('Moved too fast in parts'); if (S.headOk && S.sweep < MIN_SWEEP) w.push('Camera barely moved around the vehicle (' + Math.round(S.sweep) + '°)'); if (!S.headOk) w.push('No motion-sensor data: coverage not measured'); if (share(x => Math.abs(x.tilt) > 6) > .25 && S.gyro) w.push('Camera tilted in parts');
+  const q = Math.round(100 * (1 - Math.min(1, share(x => x.mean < 45 || x.mean > 215) * .8 + share(x => x.sharp < 18) * .6 + share(x => x.move > 22) * .6 + (S.headOk && S.sweep < MIN_SWEEP ? .35 : 0)))); return { quality: q, warnings: w };
+}
+function onStopped() {
+  if (S.cancel) return; const secs = (Date.now() - S.t0) / 1000, type = /webm/.test(S.mime) ? 'video/webm' : 'video/mp4', blob = new Blob(S.chunks, { type }), sum = summarize();
+  if (secs < 3) { toast('That was too short. Hold the record button area and keep going for at least 10 seconds.'); return; }
+  pendingClip = { vid, sec: SECTIONS[cur][0], blob, seconds: secs, sweep: S.headOk ? S.sweep : 0, type, quality: sum.quality, warnings: sum.warnings, at: Date.now() };
+  const url = URL.createObjectURL(blob); $('#rv').src = url; $('#rev').classList.add('on'); $('#upProg').hidden = true;
+  $('#revInfo').innerHTML = `<b style="color:#fff">${esc(SECTIONS[cur][1])}</b> · ${Math.round(secs)} s · ${(blob.size / 1048576).toFixed(1)} MB · quality ${sum.quality}/100` + (S.headOk ? ` · swept ${Math.round(S.sweep)}°` : '') + (sum.warnings.length ? '<br>' + sum.warnings.map(w => '⚠ ' + esc(w)).join('<br>') : '<br>✓ No problems found') + (blob.size > MAX_BYTES + 2 * 1048576 ? '<br>⚠ Over the 60 MB upload limit. Retake a shorter clip.' : '');
+  $('#use').disabled = blob.size > 60 * 1048576;
+}
+$('#retake').onclick = () => { $('#rev').classList.remove('on'); $('#rv').removeAttribute('src'); $('#rv').load(); pendingClip = null; };
+$('#use').onclick = async () => {
+  const c = pendingClip; if (!c) return; $('#use').disabled = true; $('#retake').disabled = true; const key = c.vid + ':' + c.sec + ':' + c.at;
+  await idb.put(key, c).catch(() => {});             // safe copy on this phone until the upload succeeds
+  try { await uploadClip(c, key); $('#rev').classList.remove('on'); $('#rv').removeAttribute('src'); closeCam(); toast('Saved.'); drawHome(); }
+  catch (e) { toast('Upload failed: ' + e.message + '. Your recording is kept on this phone. Use Upload now on the main screen.'); $('#rev').classList.remove('on'); closeCam(); loadPending(); }
+  $('#use').disabled = false; $('#retake').disabled = false;
+};
+function xhrUpload(blob, onp) { return new Promise((ok, bad) => { const x = new XMLHttpRequest(); x.open('POST', '/api/media?raw=1&vehicleId=' + encodeURIComponent(vid)); x.withCredentials = true; x.setRequestHeader('content-type', 'application/octet-stream'); x.upload.onprogress = e => { if (e.lengthComputable) onp(e.loaded / e.total); }; x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch (e) {} x.status >= 200 && x.status < 300 ? ok(j) : bad(new Error(j.error || 'Error ' + x.status)); }; x.onerror = () => bad(new Error('Network error')); x.ontimeout = () => bad(new Error('Timed out')); x.timeout = 10 * 60 * 1000; x.send(blob); }); }
+async function uploadClip(c, key) {
+  const bar = $('#upProg'); bar.hidden = false;
+  const j = await xhrUpload(c.blob, f => { bar.firstElementChild.style.width = Math.round(f * 100) + '%'; });
+  const fresh = await api('/api/vehicle?id=' + encodeURIComponent(c.vid)); const cp = Object.assign({}, fresh.captures || {});
+  cp[c.sec] = { url: j.url, type: c.type, bytes: c.blob.size, seconds: c.seconds, sweep: c.sweep, at: c.at, status: 'uploaded', quality: c.quality, warnings: c.warnings };
+  await api('/api/vehicle?id=' + encodeURIComponent(c.vid), { method: 'PUT', body: JSON.stringify({ captures: cp }) });
+  caps = cp; await idb.del(key).catch(() => {}); bar.hidden = true;
+}
+init();
+</script>
+</body></html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AutoSpin360 owner</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a0b0d">
+<link rel="icon" href="/hicon3.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css">
+<style>
+.login-wrap{max-width:340px;margin:80px auto;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.login-wrap h1{font-size:18px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.head h1{font-size:22px;margin:0}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 16px}
+.meter{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.meter .bar{width:120px;height:6px;border-radius:4px;background:var(--panel2);overflow:hidden}
+.meter .bar b{display:block;height:100%;background:var(--accent)}
+.dlist{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.drow{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.drow:last-child{border-bottom:0}
+.drow .main{flex:1;min-width:200px}
+.drow .main b{font-size:15px;display:block}
+.drow .main a{font-size:12.5px;color:var(--accent);text-decoration:none;word-break:break-all}
+.drow .main .st{font-size:12px;color:var(--muted);margin-top:2px}
+.drow .acts{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:2px}
+.pill.on{background:rgba(62,207,142,.14);color:#3ecf8e}.pill.off{background:rgba(229,72,77,.16);color:#ff7a7f}.pill.home{background:rgba(242,183,5,.14);color:#f2b705}
+.sheet-bg{position:fixed;inset:0;background:rgba(5,7,9,.6);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto;z-index:40}
+.sheet{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.sheet h2{font-size:18px;margin:0 0 12px}
+.hint{font-size:12px;color:var(--muted);margin:-6px 0 12px}
+.foot{display:flex;justify-content:space-between;gap:10px;margin-top:16px}
+.err{color:#ff6b72;font-size:13px;margin:8px 0 0}
+.preview{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin:-8px 0 12px;word-break:break-all}
+.done-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13.5px;line-height:1.6}
+.done-box code{font-size:13px;color:var(--text)}
+</style>
+<link rel="stylesheet" href="/dash.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.6" opacity=".3"/><g class="arc"><path d="M16 4a12 12 0 0 1 12 12" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="28" cy="16" r="2.3" fill="var(--accent)"/></g><path d="M9.2 19.2l1.2-3.4a1.7 1.7 0 0 1 1.6-1.1h8a1.7 1.7 0 0 1 1.6 1.1l1.2 3.4v2.3H9.2z" fill="currentColor"/></svg>AutoSpin<span>360</span> <small style="font-weight:500;color:var(--muted);font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin-left:4px">owner</small></span>
+  <nav id="topNav"></nav>
+</header>
+<main class="wrap" id="app"><div class="loader"><span class="spin"></span> Loading&hellip;</div></main>
+
+<script>
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const app = document.getElementById('app'), nav = document.getElementById('topNav');
+const origin = location.origin;
+let MAX = 20;
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
+async function api(path, opts) {
+  const r = await fetch('/api/_owner' + path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== '/login') { renderLogin(); throw new Error('Signed out'); }
+  if (!r.ok) throw new Error(d.error || ('Request failed (' + r.status + ')'));
+  return d;
+}
+const slugify = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+const linkFor = d => d.isDefault ? origin + '/' : `${origin}/${d.id}/`;
+
+function renderLogin(configured) {
+  nav.innerHTML = '';
+  app.innerHTML = `<div class="login-wrap"><p class="eyebrow">Owner console</p><h1>Owner sign in</h1>
+    ${configured === false ? `<p class="err" style="margin:0 0 12px">No owner password is set yet. In Cloudflare: <b>autospin360 &rarr; Settings &rarr; Variables and Secrets &rarr; Add</b>, type <b>Secret</b>, name <code>OWNER_PASSWORD</code>, then <b>Deploy</b> and reload this page.</p>` : ''}
+    <form id="f"><label class="field"><span>Owner password</span><input class="input" id="pw" type="password" autocomplete="current-password"></label>
+    <button class="btn primary" style="width:100%">Sign in</button></form><p class="err" id="e" hidden></p></div>`;
+  const f = app.querySelector('#f'), e = app.querySelector('#e');
+  f.addEventListener('submit', async ev => {
+    ev.preventDefault(); e.hidden = true;
+    const b = f.querySelector('button'); b.disabled = true; b.textContent = 'Checking…';
+    try { await api('/login', { method: 'POST', body: JSON.stringify({ password: app.querySelector('#pw').value }) }); renderList(); }
+    catch (err) { e.textContent = err.message; e.hidden = false; }
+    finally { b.disabled = false; b.textContent = 'Sign in'; }
+  });
+  app.querySelector('#pw').focus();
+}
+
+async function renderList() {
+  nav.innerHTML = '<a href="#" id="out">Sign out</a>';
+  nav.querySelector('#out').addEventListener('click', async e => { e.preventDefault(); await api('/logout', { method: 'POST' }).catch(() => {}); renderLogin(); });
+  app.innerHTML = '<div class="loader"><span class="spin"></span> Loading dealerships&hellip;</div>';
+  let data;
+  try { data = await api('/dealers'); } catch (e) { if (e.message !== 'Signed out') app.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`; return; }
+  MAX = data.max || 20;
+  const ds = data.dealers, n = ds.length;
+  app.innerHTML = `
+    <div class="head"><h1>Dealerships</h1>
+      <div class="meter">${n} of ${MAX}<div class="bar"><b style="width:${Math.min(100, n / MAX * 100)}%"></b></div>
+      <button class="btn primary" id="add" ${n >= MAX ? 'disabled title="At the limit"' : ''}>+ Add dealership</button></div></div>
+    <p class="sub">Each dealership has its own address, logins, vehicles, appraisals and photos. Staff sign in at their address; customers browse the same address.</p>
+    <div class="dlist">${ds.map(d => `
+      <div class="drow" data-id="${esc(d.id)}">
+        <div class="main"><b>${esc(d.name)}${d.isDefault ? '<span class="pill home">first dealership</span>' : d.paused ? '<span class="pill off">paused</span>' : '<span class="pill on">active</span>'}</b>
+          <a href="${esc(linkFor(d))}" target="_blank" rel="noopener">${esc(linkFor(d))}</a>
+          <div class="st">${d.vehicles} vehicle${d.vehicles === 1 ? '' : 's'} &middot; ${d.appraisals} appraisal${d.appraisals === 1 ? '' : 's'} &middot; logins: ${d.logins.length ? esc(d.logins.join(', ')) : '<i>none</i>'}${d.contact ? ' &middot; ' + esc(d.contact) : ''}</div>
+          ${d.notes ? `<div class="st">${esc(d.notes)}</div>` : ''}</div>
+        <div class="acts">
+          <button class="btn" data-act="copy">Copy link</button>
+          <button class="btn" data-act="edit">Edit</button>
+          <button class="btn" data-act="login">Set login</button>
+          ${d.isDefault ? '' : `<button class="btn" data-act="pause">${d.paused ? 'Resume' : 'Pause'}</button><button class="btn danger" data-act="del">Remove</button>`}
+        </div>
+      </div>`).join('')}</div>`;
+  app.querySelector('#add').addEventListener('click', openAdd);
+  app.querySelector('.dlist').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const d = ds.find(x => x.id === b.closest('.drow').dataset.id);
+    ({ copy: () => copyLink(d), edit: () => openEdit(d), login: () => openLogin(d), pause: () => togglePause(d), del: () => openDelete(d) })[b.dataset.act]();
+  });
+}
+async function copyLink(d) {
+  try { await navigator.clipboard.writeText(linkFor(d)); toast('Link copied.'); } catch (e) { prompt('Copy this link:', linkFor(d)); }
+}
+function sheet(html) {
+  const bg = document.createElement('div'); bg.className = 'sheet-bg';
+  bg.innerHTML = `<div class="sheet">${html}</div>`;
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
+  bg.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => bg.remove()));
+  return bg;
+}
+async function busy(btn, fn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Working…';
+  try { return await fn(); } finally { btn.disabled = false; btn.textContent = t; }
+}
+function openAdd() {
+  const s = sheet(`<h2>Add a dealership</h2>
+    <label class="field"><span>Dealership name</span><input class="input" id="nm" placeholder="Smith Auto Sales" maxlength="60"></label>
+    <label class="field"><span>Web address part</span><input class="input" id="id" placeholder="smith-auto" maxlength="40" autocapitalize="off" spellcheck="false"></label>
+    <p class="preview" id="pv"></p>
+    <label class="field"><span>Contact (optional)</span><input class="input" id="ct" placeholder="Name, phone or email" maxlength="120"></label>
+    <h3 style="font-size:14px;margin:16px 0 8px">First login for their staff</h3>
+    <div class="grid2"><label class="field"><span>Login name</span><input class="input" id="un" autocapitalize="off" spellcheck="false" placeholder="manager"></label>
+    <label class="field"><span>Password (8+ characters)</span><input class="input" id="pw" type="text" autocomplete="off"></label></div>
+    <p class="hint">They can add more logins themselves under Admins once they're in.</p>
+    <p class="err" id="e" hidden></p>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="go">Add dealership</button></div>`);
+  const $ = q => s.querySelector(q);
+  let touched = false;
+  const pv = () => { $('#pv').textContent = $('#id').value ? `${origin}/${$('#id').value}/` : ''; };
+  $('#nm').addEventListener('input', () => { if (!touched) { $('#id').value = slugify($('#nm').value); pv(); } });
+  $('#id').addEventListener('input', () => { touched = true; $('#id').value = slugify($('#id').value).slice(0, 40) + ($('#id').value.endsWith('-') ? '-' : ''); pv(); });
+  $('#pw').value = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
+  $('#go').addEventListener('click', () => busy($('#go'), async () => {
+    $('#e').hidden = true;
+    const body = { name: $('#nm').value.trim(), id: $('#id').value.replace(/-+$/, ''), contact: $('#ct').value.trim(), username: $('#un').value.trim(), password: $('#pw').value };
+    try {
+      await api('/dealers', { method: 'POST', body: JSON.stringify(body) });
+      s.querySelector('.sheet').innerHTML = `<h2>${esc(body.name)} is set up</h2>
+        <div class="done-box">Send them this:<br>Address: <code>${esc(origin)}/${esc(body.id)}/admin.html</code><br>Login: <code>${esc(body.username)}</code><br>Password: <code>${esc(body.password)}</code><br>
+        Their customers browse <code>${esc(origin)}/${esc(body.id)}/</code></div>
+        <div class="foot"><button class="btn" id="cp">Copy all</button><button class="btn primary" data-close>Done</button></div>`;
+      s.querySelector('[data-close]').addEventListener('click', () => s.remove());
+      s.querySelector('#cp').addEventListener('click', async () => {
+        const txt = `AutoSpin360 for ${body.name}\nSign in: ${origin}/${body.id}/admin.html\nLogin: ${body.username}\nPassword: ${body.password}\nCustomer inventory: ${origin}/${body.id}/`;
+        try { await navigator.clipboard.writeText(txt); toast('Copied.'); } catch (e) { prompt('Copy:', txt); }
+      });
+      renderList();
+    } catch (err) { $('#e').textContent = err.message; $('#e').hidden = false; }
+  }));
+  $('#nm').focus();
+}
+function openEdit(d) {
+  const s = sheet(`<h2>Edit ${esc(d.name)}</h2>
+    <label class="field"><span>Dealership name</span><input class="input" id="nm" value="${esc(d.name)}" maxlength="60"></label>
+    <p class="hint">Shown on their inventory page, sign-in page and the branded background. The web address can't change, so their links keep working.</p>
+    <label class="field"><span>Contact</span><input class="input" id="ct" value="${esc(d.contact)}" maxlength="120"></label>
+    <label class="field"><span>Notes (only you see these)</span><textarea class="input" id="no" rows="3" maxlength="500">${esc(d.notes)}</textarea></label>
+    <p class="err" id="e" hidden></p>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="go">Save</button></div>`);
+  const $ = q => s.querySelector(q);
+  $('#go').addEventListener('click', () => busy($('#go'), async () => {
+    try { await api('/dealers', { method: 'PATCH', body: JSON.stringify({ id: d.id, name: $('#nm').value, contact: $('#ct').value, notes: $('#no').value }) }); s.remove(); toast('Saved.'); renderList(); }
+    catch (err) { $('#e').textContent = err.message; $('#e').hidden = false; }
+  }));
+}
+function openLogin(d) {
+  const s = sheet(`<h2>Set a login for ${esc(d.name)}</h2>
+    <p class="hint" style="margin:0 0 12px">Adds a login, or sets a new password if that login name already exists (for when someone is locked out).${d.logins.length ? ` Current logins: ${esc(d.logins.join(', '))}.` : ''}</p>
+    <div class="grid2"><label class="field"><span>Login name</span><input class="input" id="un" value="${esc(d.logins[0] || '')}" autocapitalize="off" spellcheck="false"></label>
+    <label class="field"><span>New password (8+)</span><input class="input" id="pw" type="text" autocomplete="off"></label></div>
+    <p class="err" id="e" hidden></p>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="go">Save login</button></div>`);
+  const $ = q => s.querySelector(q);
+  $('#go').addEventListener('click', () => busy($('#go'), async () => {
+    try { await api('/login-reset', { method: 'POST', body: JSON.stringify({ id: d.id, username: $('#un').value.trim(), password: $('#pw').value }) }); s.remove(); toast('Login saved.'); renderList(); }
+    catch (err) { $('#e').textContent = err.message; $('#e').hidden = false; }
+  }));
+}
+async function togglePause(d) {
+  if (!d.paused && !confirm(`Pause ${d.name}? Their staff can't sign in and their customer pages show "not available" until you resume. Nothing is deleted.`)) return;
+  try { await api('/dealers', { method: 'PATCH', body: JSON.stringify({ id: d.id, paused: !d.paused }) }); toast(d.paused ? 'Resumed.' : 'Paused.'); renderList(); }
+  catch (e) { toast(e.message); }
+}
+function openDelete(d) {
+  const s = sheet(`<h2>Remove ${esc(d.name)}?</h2>
+    <p style="font-size:14px;line-height:1.5;margin:0 0 12px">This permanently deletes their <b>${d.vehicles} vehicles, ${d.appraisals} appraisals, all photos and logins</b>. It can't be undone. If they might come back, use <b>Pause</b> instead.</p>
+    <label class="field"><span>Type <b>${esc(d.id)}</b> to confirm</span><input class="input" id="cf" autocapitalize="off" spellcheck="false"></label>
+    <p class="err" id="e" hidden></p>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn danger" id="go" disabled>Remove for good</button></div>`);
+  const $ = q => s.querySelector(q);
+  $('#cf').addEventListener('input', () => { $('#go').disabled = $('#cf').value.trim() !== d.id; });
+  $('#go').addEventListener('click', () => busy($('#go'), async () => {
+    try { const r = await api('/dealers', { method: 'DELETE', body: JSON.stringify({ id: d.id, confirm: $('#cf').value.trim() }) }); s.remove(); toast(`${d.name} removed (${r.removed} files deleted).`); renderList(); }
+    catch (err) { $('#e').textContent = err.message; $('#e').hidden = false; }
+  }));
+}
+
+(async () => {
+  try { const r = await fetch('/api/_owner').then(r => r.json()); r.authed ? renderList() : renderLogin(r.configured); }
+  catch (e) { app.innerHTML = '<div class="empty-state">Could not reach the server.</div>'; }
+})();
+</script>
+</body>
+</html>

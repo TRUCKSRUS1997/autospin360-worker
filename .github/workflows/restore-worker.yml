@@ -1,0 +1,91 @@
+name: Restore Worker backup
+
+# Puts a saved backup of the live Worker back (undo a publish). Needs the number of the "Publish site files"
+# run that made the backup (the number at the end of that run's web address). Tick "Dry run" to only check
+# the backup. The real restore waits for YOUR approval first.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Number of the 'Publish site files' run whose backup to restore (end of that run's web address)"
+        type: string
+        required: true
+      dry_run:
+        description: "Dry run: only check the backup. Nothing is changed. (Untick to restore; you will be asked to approve first.)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  check:
+    name: Check the backup (changes nothing)
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests==2.32.3
+      - name: Get and unlock the backup
+        run: |
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::BACKUP_PASSPHRASE secret isn't set"; exit 1; }
+          RUN_ID='${{ inputs.run_id }}'
+          case "$RUN_ID" in (*[!0-9]*|'') echo "::error::run number must be digits only"; exit 1;; esac
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" -n "worker-backup-$RUN_ID" -D dl
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in dl/worker-backup.tgz.enc -out backup.tgz -pass env:BACKUP_PASSPHRASE
+          tar xzf backup.tgz
+      - name: Preview
+        run: python scripts/deploy_site.py restore --from backup --dry-run
+
+  restore:
+    name: Restore (waits for your approval)
+    needs: check
+    if: inputs.dry_run == false && vars.APPROVAL_GATE_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests==2.32.3
+      - name: Get and unlock the backup
+        run: |
+          RUN_ID='${{ inputs.run_id }}'
+          case "$RUN_ID" in (*[!0-9]*|'') echo "::error::run number must be digits only"; exit 1;; esac
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" -n "worker-backup-$RUN_ID" -D dl
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in dl/worker-backup.tgz.enc -out backup.tgz -pass env:BACKUP_PASSPHRASE
+          tar xzf backup.tgz
+      - name: Restore and check
+        run: python scripts/deploy_site.py restore --from backup
+      - name: Encrypt a copy of what was live just before this restore
+        if: always()
+        run: |
+          if [ -d backup-before-restore ]; then
+            tar czf before.tgz backup-before-restore
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in before.tgz -out worker-backup.tgz.enc -pass env:BACKUP_PASSPHRASE
+            rm -rf backup-before-restore before.tgz
+          fi
+      - name: Keep that copy (restore it with this workflow using this run's number)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-backup-${{ github.run_id }}
+          path: worker-backup.tgz.enc
+          if-no-files-found: ignore
+          retention-days: 90

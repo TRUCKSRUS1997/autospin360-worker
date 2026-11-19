@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dealer Admin</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="apple-touch-icon" href="/api/icon?size=192">
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AutoSpin360">
+<meta name="theme-color" content="#0a0b0d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css">
+<style>
+.login-wrap{max-width:340px; margin:80px auto; padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:14px}
+.login-wrap h1{font-size:18px}
+.row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
+.vlist{border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.vrow{display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--line)}
+.vrow:last-child{border-bottom:0}
+.vrow .thumb{width:64px; height:44px; border-radius:6px; background:var(--panel2); overflow:hidden; flex:none; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:10px}
+.vrow .thumb img{width:100%; height:100%; object-fit:cover}
+.vrow .meta{flex:1; min-width:0}
+.vrow .meta b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.vrow .meta span{font-size:12px; color:var(--muted)}
+.vrow .actions{display:flex; gap:6px; flex:none}
+.overlay{position:fixed; inset:0; background:rgba(5,7,9,.6); display:flex; align-items:flex-start; justify-content:center; padding:28px 14px; overflow-y:auto; z-index:40}
+.sheet{width:100%; max-width:640px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px}
+.sheet h2{font-size:19px; margin-bottom:14px}
+.photo-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; margin:8px 0 12px}
+.photo-grid .ph{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; background:var(--panel2)}
+.photo-grid .ph img{width:100%; height:100%; object-fit:cover; display:block}
+.photo-grid .ph .ops{position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:space-between; padding:4px; opacity:0; pointer-events:none; transition:opacity .15s; background:linear-gradient(rgba(0,0,0,.35),transparent 40%)}
+.photo-grid .ph:hover .ops,.photo-grid .ph:focus-within .ops{opacity:1; pointer-events:auto}
+.photo-grid .ph .cvr{z-index:1}
+.photo-grid .ph button{width:24px; height:24px; border-radius:6px; border:0; background:rgba(10,12,14,.75); color:#fff; font-size:12px; display:grid; place-items:center; padding:0}
+.photo-grid .ph .idx{position:absolute; left:4px; bottom:4px; font-size:10px; background:rgba(10,12,14,.75); color:#fff; padding:1px 5px; border-radius:5px}
+.photo-grid .ph.cover{outline:2px solid var(--accent); outline-offset:-2px}
+.photo-grid .ph .cvr{position:absolute; right:4px; bottom:4px; width:24px; height:24px; border-radius:6px; border:0; background:rgba(10,12,14,.75); color:#fff; font-size:13px; display:grid; place-items:center; padding:0; line-height:1}
+.photo-grid .ph.cover .cvr{background:var(--accent); color:var(--accent-ink)}
+.photo-grid .ph .covertag{position:absolute; left:4px; top:4px; font-size:10px; font-weight:700; background:var(--accent); color:var(--accent-ink); padding:1px 6px; border-radius:5px}
+.drop{display:flex; flex-direction:column; align-items:center; gap:4px; padding:18px; text-align:center; border:1.5px dashed var(--line); border-radius:10px; background:var(--panel2); cursor:pointer; font-size:13px; color:var(--muted)}
+.drop strong{color:var(--text); font-size:14px}
+.drop input{position:absolute; width:1px; height:1px; opacity:0}
+.progress{font-size:13px; color:var(--accent); margin-top:6px; min-height:1.2em}
+.hint{font-size:12px; color:var(--muted); margin:2px 0 10px}
+.sheet-foot{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line)}
+.vin-row{display:flex; gap:6px}
+.vin-row .input{flex:1}
+.vin-row .btn{flex:none; padding:0 12px}
+.vin-row .btn svg{width:18px; height:18px}
+.vin-scan{margin:-4px 0 14px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel2)}
+.vin-scan .row2{display:flex; gap:12px; align-items:flex-start}
+.vin-scan img{width:110px; height:72px; object-fit:cover; border-radius:8px; background:#000; flex:none}
+.vin-scan .col{flex:1; min-width:0}
+.vin-scan .status{font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; min-height:20px}
+.vin-scan .confirm{display:flex; gap:8px; margin-top:8px; align-items:center}
+.vin-scan .confirm input{flex:1; font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.03em}
+.vin-scan .foot{display:flex; justify-content:flex-end; gap:8px; margin-top:10px}
+.vin-scan .raw{font-size:11.5px; color:var(--muted); margin-top:6px; word-break:break-all}
+.vin-scan .reads{font-size:11.5px; color:var(--muted); margin-top:6px; font-family:ui-monospace,Menlo,Consolas,monospace; word-break:break-all}
+.vin-scan .reads b{color:var(--text); font-weight:600}
+.vin-scan .ok{color:#3ecf8e}
+.vin-scan .warn{color:#f2b705}
+.int-slots{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:8px 0 6px}
+@media (max-width:520px){.int-slots{grid-template-columns:repeat(2,1fr)}}
+.slot{position:relative; aspect-ratio:4/3; border:1.5px dashed var(--line); border-radius:10px; background:var(--panel2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:12px; color:var(--muted); cursor:pointer; overflow:hidden; text-align:center; padding:4px}
+.slot strong{color:var(--text); font-size:13px}
+.slot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.slot .cap{position:absolute; left:4px; bottom:4px; background:rgba(10,12,14,.78); color:#fff; padding:1px 7px; border-radius:5px; font-size:11px}
+.slot input{position:absolute; width:1px; height:1px; opacity:0}
+.slot .x{position:absolute; top:4px; right:4px; width:22px; height:22px; border:0; border-radius:6px; background:rgba(10,12,14,.78); color:#fff; font-size:14px; line-height:1; padding:0; cursor:pointer}
+.slot.busy{opacity:.6}
+.guide-box{border:1px solid var(--line); border-radius:12px; background:var(--panel2); padding:12px; margin:6px 0 12px}
+.guide-box b{display:block; font-size:14px}
+.guide-box > span{display:block; font-size:12.5px; color:var(--muted); margin:2px 0 10px}
+.tchips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px}
+.tchips button{border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer}
+.tchips button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.icon-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+@media (max-width:460px){.icon-grid{grid-template-columns:repeat(2,1fr)}}
+.icon-opt{position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 6px 8px; border:1.5px solid var(--line); border-radius:12px; background:var(--panel2); cursor:pointer}
+.icon-opt img{width:64px; height:64px; border-radius:14px; display:block}
+.icon-opt span{font-size:12px; color:var(--muted)}
+.icon-opt.sel{border-color:var(--accent); background:rgba(242,183,5,.08)}
+.icon-opt.sel span{color:var(--text); font-weight:600}
+.icon-opt .icon-check{position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--accent-ink); font-size:12px; font-weight:700; display:grid; place-items:center}
+.icon-opt:disabled{opacity:.6; cursor:default}
+</style>
+<link rel="stylesheet" href="/dash.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.6" opacity=".3"/><g class="arc"><path d="M16 4a12 12 0 0 1 12 12" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="28" cy="16" r="2.3" fill="var(--accent)"/></g><path d="M9.2 19.2l1.2-3.4a1.7 1.7 0 0 1 1.6-1.1h8a1.7 1.7 0 0 1 1.6 1.1l1.2 3.4v2.3H9.2z" fill="currentColor"/></svg>AutoSpin<span>360</span></a>
+  <nav id="topNav"></nav>
+</header>
+<main class="wrap" id="app">
+  <div class="loader"><span class="spin"></span> Loading&hellip;</div>
+</main>
+
+<template id="tpl-login">
+  <div class="login-wrap">
+    <p class="eyebrow">Dealer access</p>
+    <h1>Dealer login</h1>
+    <form id="loginForm">
+      <label class="field"><span>Username</span><input class="input" id="user" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <label class="field"><span>Password</span><input class="input" id="pw" name="password" type="password" autocomplete="current-password"></label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:2px 0 16px">
+        <input type="checkbox" id="remember" checked style="width:auto"> Stay signed in on this device
+      </label>
+      <button class="btn primary" id="loginBtn" type="submit" style="width:100%">Log in</button>
+    </form>
+    <p id="loginErr" style="color:#ff6b72;font-size:13px;margin:10px 0 0" hidden></p>
+  </div>
+</template>
+
+<template id="tpl-manager">
+  <div class="dash-head">
+    <div><p class="eyebrow">Dealer dashboard</p><h1>Inventory</h1></div>
+    <div class="dash-actions"><a class="btn" href="/appraisal.html">New appraisal</a><button class="btn primary" id="addBtn">+ Add vehicle</button></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span>Vehicles</span><b id="statVehicles">&ndash;</b></div>
+    <div class="stat"><span>Appraisals</span><b id="statAppr">&ndash;</b></div>
+    <div class="stat"><span>Signed in as</span><b class="sm" id="statUser">&ndash;</b></div>
+  </div>
+  <div class="dash-tools">
+    <label class="dash-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input class="input" id="vSearch" type="search" placeholder="Search by make, model or stock #" autocomplete="off" aria-label="Search vehicles">
+    </label>
+  </div>
+  <section id="inqBox" class="inq-box" hidden></section>
+  <div id="vlist"></div>
+</template>
+
+<script src="/home-btn.js"></script>
+<script src="/guide.js"></script>
+<script src="/guide-plus.js"></script>
+<script src="/flow-addon.js"></script>
+<script src="/photo-tools.js"></script>
+<script src="/bg-studio.js"></script>
+<script src="/admin-bg.js"></script>
+<script src="/vin-scan.js"></script>
+<script src="/showroom.js?v=1"></script>
+<script src="/frames.js?v=1"></script>
+<script src="/qr.js?v=1"></script>
+<script>
+const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app = document.getElementById('app');
+const topNav = document.getElementById('topNav');
+let currentUser = null;
+
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+async function api(url, opts) {
+  const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && data.error) || ('Request failed (' + r.status + ')'));
+  return data;
+}
+
+async function uploadBlob(vehicleId, kind, blob) {
+  const r = await fetch(`/api/upload?vehicleId=${encodeURIComponent(vehicleId)}&kind=${kind}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Upload failed');
+  return data.url;
+}
+function deletePhoto(url) {
+  return fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {});
+}
+
+let tesseractReady = null;
+function ensureTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (tesseractReady) return tesseractReady;
+  tesseractReady = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = resolve; s.onerror = () => reject(new Error('Could not load the text scanner'));
+    document.head.appendChild(s);
+  });
+  return tesseractReady;
+}
+
+let zxingReady = null;
+function ensureZXing() {
+  if (window.ZXingBrowser) return Promise.resolve();
+  if (zxingReady) return zxingReady;
+  zxingReady = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@zxing/browser@latest';
+    s.onload = resolve; s.onerror = () => reject(new Error('Could not load the barcode scanner'));
+    document.head.appendChild(s);
+  });
+  return zxingReady;
+}
+// VINs never contain I, O, or Q.
+const VIN_RE = /[A-HJ-NPR-Z0-9]{17}/g;
+function bestVinGuess(text) {
+  const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, ' ');
+  const matches = clean.match(VIN_RE);
+  if (!matches || !matches.length) return '';
+  // Prefer a match with a plausible mix of letters and digits (real VINs have both).
+  matches.sort((a, b) => {
+    const score = s => (/[A-Z]/.test(s) ? 1 : 0) + (/[0-9]/.test(s) ? 1 : 0);
+    return score(b) - score(a);
+  });
+  return matches[0];
+}
+
+// The window sticker almost always carries the VIN in a scannable code too — either a Code 39
+// barcode of the bare VIN, or a QR code (often a URL to an online window-sticker page with the
+// VIN embedded in it). ZXing checks all common formats, so one call covers both; the decoded
+// text might be a bare VIN or might have it embedded in a longer URL, so we extract rather than
+// require an exact match.
+async function tryDecodeVinCode(file) {
+  try {
+    await ensureZXing();
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = url; });
+    const result = await new ZXingBrowser.BrowserMultiFormatReader().decodeFromImageElement(img);
+    URL.revokeObjectURL(url);
+    return bestVinGuess((result && result.getText && result.getText()) || '');
+  } catch (e) {
+    return ''; // no scannable code on the label, or it couldn't be read — the AI readers still run
+  }
+}
+
+// Shrinks the photo (long edge 1600px) and returns base64 JPEG for the AI readers.
+async function photoToBase64(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.88));
+  return await new Promise((ok, bad) => {
+    const fr = new FileReader();
+    fr.onload = () => ok(String(fr.result).split(',')[1]);
+    fr.onerror = () => bad(new Error('Could not read the photo'));
+    fr.readAsDataURL(blob);
+  });
+}
+
+function showVinConfirm(panel, previewUrl, guess, onConfirm) {
+  panel.insertAdjacentHTML('beforeend', `
+    <div class="confirm">
+      <input class="input" id="vinGuess" maxlength="17" style="text-transform:uppercase" value="${esc(guess)}" placeholder="17-character VIN">
+    </div>
+    <div class="foot">
+      <button type="button" class="btn" id="vinScanCancel">Cancel</button>
+      <button type="button" class="btn primary" id="vinScanUse">Use this VIN</button>
+    </div>`);
+  panel.querySelector('#vinScanCancel').addEventListener('click', () => { panel.hidden = true; panel.innerHTML = ''; URL.revokeObjectURL(previewUrl); });
+  panel.querySelector('#vinScanUse').addEventListener('click', () => {
+    const v = panel.querySelector('#vinGuess').value.trim().toUpperCase();
+    if (v.length !== 17) { toast('A VIN is 17 characters — check for typos.'); return; }
+    panel.hidden = true; panel.innerHTML = ''; URL.revokeObjectURL(previewUrl);
+    onConfirm(v);
+  });
+}
+
+// Scan order: barcode / QR code first (exact), then two AI readers that cross-check each other
+// (server-side, /api/scan-vin), then on-device text recognition if the AI readers aren't set up.
+async function scanVinPhoto(overlay, file, onConfirm) {
+  const panel = overlay.querySelector('#vinScanPanel');
+  const previewUrl = URL.createObjectURL(file);
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="row2">
+      <img src="${previewUrl}" alt="">
+      <div class="col">
+        <div class="status"><span class="spin" style="width:14px;height:14px"></span> <span id="vinStatusTxt">Checking for a barcode or QR code…</span></div>
+        <div class="raw" id="vinRaw"></div>
+        <div class="reads" id="vinReads"></div>
+      </div>
+    </div>`;
+  const statusTxt = () => panel.querySelector('#vinStatusTxt');
+  const setStatus = html => { const s = panel.querySelector('.status'); if (s) s.innerHTML = html; };
+
+  const codeVin = await tryDecodeVinCode(file);
+  if (codeVin) {
+    setStatus('<span>Read from a code on the label — double-check it below:</span>');
+    showVinConfirm(panel, previewUrl, codeVin, onConfirm);
+    return;
+  }
+
+  // AI readers
+  statusTxt().textContent = 'No code found — reading the label with two AI readers…';
+  try {
+    const image = await photoToBase64(file);
+    const r = await fetch('/api/scan-vin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) throw new Error('Session expired — log in again.');
+    if (r.ok) {
+      const names = { groq: 'Reader A', gemini: 'Reader B' };
+      panel.querySelector('#vinReads').innerHTML = (d.reads || []).filter(x => !x.skipped).map(x =>
+        `${names[x.source] || x.source}: <b>${esc(x.vin || (x.error ? 'error' : 'not found'))}</b>${x.vin ? (x.valid ? ' <span class="ok">✓</span>' : ' <span class="warn">?</span>') : ''}`).join('<br>');
+      if (d.vin) {
+        setStatus(d.agree
+          ? `<span class="ok">Both AI readers agree${d.confidence === 'high' ? ' and the check digit is valid' : ''} — confirm below:</span>`
+          : '<span class="warn">The readers did not fully agree — check every character:</span>');
+        showVinConfirm(panel, previewUrl, d.vin, onConfirm);
+        return;
+      }
+      // neither AI reader found a VIN — fall through to text recognition
+    }
+  } catch (err) {
+    if (/Session expired/.test(err.message)) { statusTxt().textContent = err.message; panel.querySelector('.spin') && panel.querySelector('.spin').remove(); return; }
+    // otherwise fall through to on-device text recognition
+  }
+
+  statusTxt().textContent = 'Reading the printed text…';
+  try {
+    await ensureTesseract();
+    const { data } = await window.Tesseract.recognize(file, 'eng');
+    const guess = bestVinGuess(data.text || '');
+    panel.querySelector('#vinRaw').textContent = (data.text || '').trim().slice(0, 200);
+    setStatus(guess
+      ? '<span>Found a possible VIN — check it below:</span>'
+      : '<span>Could not find a clear VIN. You can type it in below.</span>');
+    showVinConfirm(panel, previewUrl, guess, onConfirm);
+  } catch (err) {
+    statusTxt().textContent = 'Could not read that photo: ' + err.message;
+    const sp = panel.querySelector('.spin'); if (sp) sp.remove();
+  }
+}
+async function decodeVin(vin, overlay, onData) {
+  const f = sel => overlay.querySelector(sel);
+  try {
+    const data = await api('/api/decode-vin?vin=' + encodeURIComponent(vin));
+    const filled = [];
+    if (data.year && !f('#fYear').value) { f('#fYear').value = data.year; filled.push('year'); }
+    if (data.make && !f('#fMake').value) { f('#fMake').value = data.make; filled.push('make'); }
+    if (data.model && !f('#fModel').value) { f('#fModel').value = data.model; filled.push('model'); }
+    if (data.trim && !f('#fTrim').value) { f('#fTrim').value = data.trim; filled.push('trim'); }
+    if (data.drivetrain && !f('#fDrive').value) { f('#fDrive').value = data.drivetrain; filled.push('drivetrain'); }
+    if (data.fuel && !f('#fFuel').value) { f('#fFuel').value = data.fuel; filled.push('fuel'); }
+    if (data.engine && !f('#fEngine').value) { f('#fEngine').value = data.engine; filled.push('engine'); }
+    if (data.transmission && !f('#fTrans').value) { f('#fTrans').value = data.transmission; filled.push('transmission'); }
+    if (onData) onData(data);
+    toast(filled.length ? `VIN decoded — filled in ${filled.join(', ')}.` : 'VIN decoded, but those fields were already filled in.');
+  } catch (err) {
+    toast("Couldn't decode that VIN: " + err.message);
+  }
+}
+
+function newTempId() {
+  return 'draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+async function checkSession() {
+  try { const r = await api('/api/auth'); currentUser = r.username || null; return !!r.ok; } catch { return false; }
+}
+
+function renderLogin() {
+  topNav.innerHTML = '';
+  app.innerHTML = '';
+  app.appendChild(document.getElementById('tpl-login').content.cloneNode(true));
+  if (window.DEALER && DEALER.name) app.querySelector('.login-wrap h1').textContent = DEALER.name + ' \u2014 dealer login';
+  const form = document.getElementById('loginForm');
+  const user = document.getElementById('user'), pw = document.getElementById('pw'), remember = document.getElementById('remember');
+  const btn = document.getElementById('loginBtn'), err = document.getElementById('loginErr');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    err.hidden = true; btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      const r = await api('/api/auth', { method: 'POST', body: JSON.stringify({ username: user.value.trim(), password: pw.value, remember: remember.checked }) });
+      currentUser = r.username || user.value.trim();
+      renderManager();
+    } catch (e2) {
+      err.textContent = e2.message; err.hidden = false;
+    } finally { btn.disabled = false; btn.textContent = 'Log in'; }
+  });
+  user.focus();
+}
+
+async function renderManager() {
+  topNav.innerHTML = `<span style="color:var(--muted);font-size:13px">${esc(currentUser || '')}</span><a href="/appraisal.html">Appraisals</a><a href="/media.html">Media</a><a href="/capture.html">Capture</a><a href="#" id="brandLink">Branding</a><a href="#" id="iconLink">Icon</a><a href="#" id="adminsLink">Admins</a><a href="#" id="logoutLink">Log out</a>`;
+  document.getElementById('iconLink').addEventListener('click', e => { e.preventDefault(); openIconPicker(); });
+  document.getElementById('brandLink').addEventListener('click', e => { e.preventDefault(); openBranding(); });
+  document.getElementById('adminsLink').addEventListener('click', e => { e.preventDefault(); openAdmins(); });
+  document.getElementById('logoutLink').addEventListener('click', async e => {
+    e.preventDefault();
+    await api('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }).catch(() => {});
+    renderLogin();
+  });
+  app.innerHTML = '';
+  app.appendChild(document.getElementById('tpl-manager').content.cloneNode(true));
+  document.getElementById('addBtn').addEventListener('click', () => openEditor(null));
+  const su = document.getElementById('statUser'); if (su) su.textContent = currentUser || '\u2013';
+  const vs = document.getElementById('vSearch'); if (vs) vs.addEventListener('input', applyVehicleFilter);
+  api('/api/appraisals').then(a => { const el = document.getElementById('statAppr'); if (el && Array.isArray(a)) el.textContent = a.length; }).catch(() => {});
+  await loadList();
+}
+
+// Dashboard search box: hides vehicle rows that don't match (rows stay in the page, so nothing is reloaded).
+function applyVehicleFilter() {
+  const q = ((document.getElementById('vSearch') || {}).value || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#vlist .vrow'); let shown = 0;
+  rows.forEach(r => { const hit = !q || q.split(/\s+/).every(w => r.textContent.toLowerCase().includes(w)); r.hidden = !hit; r.style.display = hit ? '' : 'none'; if (hit) shown++; });
+  let msg = document.getElementById('vNoMatch');
+  if (rows.length && !shown) {
+    if (!msg) { msg = document.createElement('div'); msg.id = 'vNoMatch'; msg.className = 'empty-state'; msg.textContent = 'No vehicles match that search.'; document.getElementById('vlist').appendChild(msg); }
+  } else if (msg) msg.remove();
+}
+
+const ICON_LABELS = { hicon1: 'Classic', hicon2: 'Bold Gold', hicon3: 'Minimal Line', hicon4: 'Shutter', hicon5: 'Wordmark', hicon6: 'Badge' };
+
+// Branding: this dealership's colour (buttons, highlights, the stripe on the branded background)
+// and logo (shown on the branded background next to the name).
+const BRAND_COLORS = ['#f2b705', '#e5484d', '#0b5cff', '#1f8f4e', '#ff7a00', '#6e56cf', '#00a3bf', '#c9ccd1'];
+async function openBranding() {
+  let b = { color: '', logo: '' };
+  try { b = await api('/api/branding'); } catch (e) {}
+  const overlay = document.createElement('div'); overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="sheet" style="max-width:480px">
+      <h2>Branding</h2>
+      <p class="hint" style="margin:-8px 0 14px">Your colour and logo, used on your pages and on the branded background for your spins. Your dealership name is set by AutoSpin360${window.DEALER && DEALER.name ? ` (&ldquo;${esc(DEALER.name)}&rdquo;)` : ''}.</p>
+      <h3 style="font-size:14px;margin:0 0 8px">Colour</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="swatches">
+        ${BRAND_COLORS.map(c => `<button type="button" data-c="${c}" title="${c}" style="width:34px;height:34px;border-radius:50%;border:3px solid ${c.toLowerCase() === (b.color || '').toLowerCase() ? 'var(--text)' : 'transparent'};background:${c};cursor:pointer"></button>`).join('')}
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)">Other <input type="color" id="cPick" value="${esc(b.color || '#f2b705')}" style="width:40px;height:32px;border:0;background:none;padding:0"></label>
+        <button type="button" class="btn" id="cReset" style="margin-left:auto">Default</button>
+      </div>
+      <h3 style="font-size:14px;margin:18px 0 8px">Logo</h3>
+      <div id="logoBox"></div>
+      <p class="hint" style="margin:8px 0 0">A PNG with a see-through background looks best on the dark wall. It's shown on the &ldquo;${esc((window.DEALER && DEALER.name) || 'your dealership')}&rdquo; background choice.</p>
+      <h3 style="font-size:14px;margin:18px 0 8px">Contact (shown on vehicle pages)</h3>
+      <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label style="font-size:13px;color:var(--muted)">Phone<input type="tel" id="bPhone" maxlength="24" placeholder="306-555-0123" value="${esc(b.phone || '')}"></label>
+        <label style="font-size:13px;color:var(--muted)">Email<input type="email" id="bEmail" maxlength="120" placeholder="sales@yourdealer.ca" value="${esc(b.email || '')}"></label>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Adds Call and Email buttons to every vehicle page. Leave blank to hide them.</p>
+      <div class="sheet-foot" style="justify-content:flex-end"><button class="btn primary" id="bClose">Done</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const $ = q => overlay.querySelector(q);
+  async function saveContact() {
+    const phone = $('#bPhone').value.trim(), email = $('#bEmail').value.trim();
+    if (phone === (b.phone || '') && email === (b.email || '')) return true;
+    try { await api('/api/branding', { method: 'POST', body: JSON.stringify({ phone, email }) }); b.phone = phone; b.email = email; toast('Contact details saved.'); return true; }
+    catch (e) { toast(e.message); return false; }
+  }
+  const close = async () => { if (!(await saveContact())) return; overlay.remove(); location.reload(); };     // reload so the new look shows everywhere
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  $('#bClose').addEventListener('click', close);
+  async function setColor(c) {
+    try { await api('/api/branding', { method: 'POST', body: JSON.stringify({ color: c }) }); b.color = c;
+      document.documentElement.style.setProperty('--accent', c || '');
+      if (!c) document.documentElement.style.removeProperty('--accent');
+      overlay.querySelectorAll('[data-c]').forEach(x => x.style.borderColor = x.dataset.c.toLowerCase() === c.toLowerCase() ? 'var(--text)' : 'transparent');
+      toast(c ? 'Colour saved.' : 'Back to the default colour.');
+    } catch (e) { toast(e.message); }
+  }
+  $('#swatches').addEventListener('click', e => { const s = e.target.closest('[data-c]'); if (s) setColor(s.dataset.c); });
+  $('#cPick').addEventListener('change', e => setColor(e.target.value));
+  $('#cReset').addEventListener('click', () => setColor(''));
+  function renderLogo() {
+    $('#logoBox').innerHTML = b.logo
+      ? `<div style="display:flex;gap:12px;align-items:center"><div style="background:#202429;border-radius:10px;padding:10px 14px"><img src="${esc(b.logo)}" alt="Logo" style="max-height:56px;max-width:220px;display:block"></div>
+         <label class="btn" style="position:relative">Replace<input type="file" accept="image/png,image/jpeg" id="lgIn" style="position:absolute;width:1px;height:1px;opacity:0"></label>
+         <button type="button" class="btn danger" id="lgDel">Remove</button></div>`
+      : `<label class="drop">Upload your logo<span>PNG or JPEG</span><input type="file" accept="image/png,image/jpeg" id="lgIn"></label>`;
+    $('#lgIn').addEventListener('change', onLogo);
+    if (b.logo) $('#lgDel').addEventListener('click', async () => {
+      try { await api('/api/branding?logo=1', { method: 'DELETE' }); b.logo = ''; renderLogo(); toast('Logo removed.'); } catch (e) { toast(e.message); }
+    });
+  }
+  async function onLogo(e) {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    try {
+      // shrink big logos, keeping a see-through background when the file has one
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, 800 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const png = file.type !== 'image/jpeg';
+      const blob = await new Promise(ok => c.toBlob(ok, png ? 'image/png' : 'image/jpeg', 0.92));
+      const r = await fetch('/api/branding?logo=1', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Upload failed');
+      b.logo = d.logo; renderLogo(); toast('Logo saved.');
+    } catch (err) { toast('That logo could not be added: ' + err.message); }
+  }
+  renderLogo();
+}
+
+async function openIconPicker() {
+  const overlay = document.createElement('div'); overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="sheet" style="max-width:480px">
+      <h2>Home screen icon</h2>
+      <p class="hint" style="margin:-8px 0 12px">Pick which icon shows when someone adds AutoSpin360 to their home screen. Takes effect right away &mdash; no reinstall needed, though a phone that already added it may keep the old icon cached for a bit.</p>
+      <div class="icon-grid" id="iconGrid"><div class="loader"><span class="spin"></span></div></div>
+      <div class="sheet-foot" style="border-top:0;margin-top:14px;padding-top:0;justify-content:flex-end">
+        <button class="btn" id="iconClose">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('iconClose').addEventListener('click', () => overlay.remove());
+
+  let current = null;
+  async function refresh() {
+    const grid = document.getElementById('iconGrid');
+    let data;
+    try { data = await api('/api/icon-setting'); } catch (e) { grid.innerHTML = '<div class="empty-state">Could not load icon options.</div>'; return; }
+    current = data.selected;
+    grid.innerHTML = data.options.map(id => `
+      <button type="button" class="icon-opt${id === current ? ' sel' : ''}" data-icon="${id}">
+        <img src="/${id}.png" alt="${esc(ICON_LABELS[id] || id)}">
+        <span>${esc(ICON_LABELS[id] || id)}</span>
+        ${id === current ? '<span class="icon-check">✓</span>' : ''}
+      </button>`).join('');
+    grid.querySelectorAll('.icon-opt').forEach(b => b.addEventListener('click', async () => {
+      const id = b.dataset.icon;
+      if (id === current) return;
+      b.disabled = true;
+      try { await api('/api/icon-setting', { method: 'POST', body: JSON.stringify({ selected: id }) }); toast('Home screen icon updated.'); refresh(); }
+      catch (e) { toast(e.message); b.disabled = false; }
+    }));
+  }
+  refresh();
+}
+
+async function openAdmins() {
+  const overlay = document.createElement('div'); overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="sheet" style="max-width:460px">
+      <h2>Administrators</h2>
+      <div id="adminList" class="vlist" style="margin-bottom:16px"></div>
+      <h3 style="font-size:15px;margin:0 0 8px">Add an administrator</h3>
+      <label class="field"><span>Username</span><input class="input" id="naUser" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <label class="field"><span>Password</span><input class="input" id="naPw" type="password" autocomplete="new-password"></label>
+      <button class="btn primary" id="naAdd" style="width:100%">Add administrator</button>
+      <div class="sheet-foot" style="border-top:0;margin-top:14px;padding-top:0;justify-content:flex-end">
+        <button class="btn" id="naClose">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('naClose').addEventListener('click', () => overlay.remove());
+
+  async function refresh() {
+    const list = document.getElementById('adminList');
+    list.innerHTML = '<div class="loader"><span class="spin"></span></div>';
+    let admins;
+    try { admins = await api('/api/admins'); } catch (e) { list.innerHTML = '<div class="empty-state">Could not load administrators.</div>'; return; }
+    list.innerHTML = admins.map(a => `
+      <div class="vrow">
+        <div class="meta"><b>${esc(a.username)}</b>${a.username.toLowerCase() === (currentUser || '').toLowerCase() ? '<span>This is you</span>' : ''}</div>
+        <div class="actions"><button class="btn danger" data-del="${esc(a.username)}" ${admins.length <= 1 ? 'disabled title="Add another administrator first"' : ''}>Remove</button></div>
+      </div>`).join('');
+    list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm(`Remove administrator "${b.dataset.del}"?`)) return;
+      try { await api('/api/admins?username=' + encodeURIComponent(b.dataset.del), { method: 'DELETE' }); toast('Administrator removed.'); refresh(); }
+      catch (e) { toast(e.message); }
+    }));
+  }
+  document.getElementById('naAdd').addEventListener('click', async () => {
+    const u = document.getElementById('naUser').value.trim(), p = document.getElementById('naPw').value;
+    const btn = document.getElementById('naAdd');
+    btn.disabled = true;
+    try {
+      await api('/api/admins', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
+      document.getElementById('naUser').value = ''; document.getElementById('naPw').value = '';
+      toast('Administrator added.'); refresh();
+    } catch (e) { toast(e.message); }
+    finally { btn.disabled = false; }
+  });
+  refresh();
+}
+
+async function loadInquiries() {
+  const box = document.getElementById('inqBox'); if (!box) return;
+  let d; try { d = await api('/api/inquiries'); } catch (e) { box.hidden = true; return; }
+  const items = d.inquiries || [];
+  if (!items.length) { box.hidden = true; return; }
+  const KIND = { 'test-drive': 'Test drive', 'info': 'Question', 'trade-in': 'Trade-in' };
+  box.hidden = false;
+  box.innerHTML = `<h3 style="font-size:16px;margin:18px 0 8px">Customer requests${d.newCount ? ` <span style="margin-left:6px;padding:2px 9px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:700">${d.newCount} new</span>` : ''}</h3>` +
+    items.map(q => `<div class="vrow" data-q="${esc(q.id)}" style="${q.status === 'new' ? '' : 'opacity:.62'}"><div class="meta" style="min-width:0"><b>${esc(KIND[q.type] || 'Request')} · ${esc(q.name)}</b><span>${esc(q.vehicle)}${q.stock ? ' · #' + esc(q.stock) : ''} · ${esc(new Date(q.createdAt).toLocaleString())}</span>
+      <span style="display:block;margin-top:4px">${q.phone ? `<a href="tel:${esc(String(q.phone).replace(/[^0-9+]/g, ''))}">${esc(q.phone)}</a> ` : ''}${q.email ? `<a href="mailto:${esc(q.email)}">${esc(q.email)}</a>` : ''}</span>
+      ${q.preferred ? `<span style="display:block">When: ${esc(q.preferred)}</span>` : ''}${q.trade && (q.trade.make || q.trade.model || q.trade.year) ? `<span style="display:block">Trade: ${esc([q.trade.year, q.trade.make, q.trade.model, q.trade.odometer].filter(Boolean).join(' '))}</span>` : ''}${q.message ? `<span style="display:block;white-space:pre-wrap">${esc(q.message)}</span>` : ''}</div>
+      <div class="actions"><button class="btn" data-qa="${q.status === 'new' ? 'handled' : 'new'}">${q.status === 'new' ? 'Mark handled' : 'Reopen'}</button><button class="btn danger" data-qa="del">Delete</button></div></div>`).join('');
+  box.onclick = async e => {
+    const b = e.target.closest('button[data-qa]'); if (!b) return;
+    const id = b.closest('[data-q]').dataset.q, act = b.dataset.qa;
+    if (act === 'del' && !confirm('Delete this request? This cannot be undone.')) return;
+    b.disabled = true;
+    try { await api('/api/inquiries?id=' + encodeURIComponent(id), act === 'del' ? { method: 'DELETE' } : { method: 'PATCH', body: JSON.stringify({ status: act }) }); } catch (er) { alert(er.message); }
+    loadInquiries();
+  };
+}
+async function loadList() {
+  const listEl = document.getElementById('vlist');
+  loadInquiries();
+  listEl.innerHTML = '<div class="loader"><span class="spin"></span> Loading vehicles…</div>';
+  let vehicles;
+  try { vehicles = await api('/api/vehicles'); } catch (e) { listEl.innerHTML = '<div class="empty-state">Could not load vehicles.</div>'; return; }
+  const sv = document.getElementById('statVehicles'); if (sv) sv.textContent = vehicles.length;
+  if (!vehicles.length) { listEl.innerHTML = '<div class="empty-state">No vehicles yet. Add your first one above.</div>'; return; }
+  const box = document.createElement('div'); box.className = 'vlist';
+  box.innerHTML = vehicles.map(v => `
+    <div class="vrow" data-id="${esc(v.id)}">
+      <div class="thumb">${v.cover ? `<img src="${esc(v.cover)}" alt="" loading="lazy" decoding="async" onerror="this.replaceWith(document.createTextNode('Photo missing'))">` : 'No photo'}</div>
+      <div class="meta"><b>${esc(v.title)}</b><span>${v.stock ? 'Stock #' + esc(v.stock) : ''}</span>${v.incomplete ? '<span style="display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:rgba(255,193,7,.14);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.04em">NEEDS DETAILS · shown to customers without year, make and model</span>' : ''}</div>
+      <div class="actions">
+        <a class="btn" href="/car.html?id=${encodeURIComponent(v.id)}" target="_blank" rel="noopener">View</a>
+        <button class="btn" data-act="edit">Edit</button>
+        <button class="btn danger" data-act="del">Delete</button>
+      </div>
+    </div>`).join('');
+  box.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const id = btn.closest('.vrow').dataset.id;
+    if (btn.dataset.act === 'edit') openEditor(id);
+    else if (btn.dataset.act === 'del') {
+      if (!confirm('Delete this vehicle and its photos? This cannot be undone.')) return;
+      try { await api('/api/vehicle?id=' + encodeURIComponent(id), { method: 'DELETE' }); toast('Vehicle deleted.'); loadList(); }
+      catch (e2) { toast(e2.message); }
+    }
+  });
+  listEl.innerHTML = ''; listEl.appendChild(box);
+  applyVehicleFilter();
+}
+
+async function openEditor(id) {
+  let vehicle = { id: newTempId(), year: '', make: '', model: '', trim: '', stock: '', vin: '', odometer: '', price: '', notes: '', exterior: [], interiorShots: [], bodyType: '' };
+  let isNew = true;
+  if (id) {
+    isNew = false;
+    try { vehicle = await api('/api/vehicle?id=' + encodeURIComponent(id)); }
+    catch (e) { toast('Could not load that vehicle.'); return; }
+  }
+
+  const overlay = document.createElement('div'); overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="sheet">
+      <h2>${isNew ? 'Add vehicle' : 'Edit vehicle'}</h2>
+      <div class="grid3">
+        <label class="field"><span>Year</span><input class="input" id="fYear" inputmode="numeric"></label>
+        <label class="field"><span>Make</span><input class="input" id="fMake"></label>
+        <label class="field"><span>Model</span><input class="input" id="fModel"></label>
+      </div>
+      <div class="grid3">
+        <label class="field"><span>Trim</span><input class="input" id="fTrim"></label>
+        <label class="field"><span>Stock #</span><input class="input" id="fStock"></label>
+        <label class="field"><span>VIN</span>
+          <div class="vin-row">
+            <input class="input" id="fVin" style="text-transform:uppercase" maxlength="17">
+            <button type="button" class="btn" id="scanVinBtn" title="Scan VIN from a photo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M4 16v2a2 2 0 0 0 2 2h2M20 8V6a2 2 0 0 0-2-2h-2M20 16v2a2 2 0 0 1-2 2h-2M7 12h10"/></svg>
+            </button>
+            <input type="file" id="vinPhotoInput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+          </div>
+        </label>
+      </div>
+      <div id="vinScanPanel" class="vin-scan" hidden></div>
+      <div class="grid2">
+        <label class="field"><span>Odometer</span><input class="input" id="fOdo"></label>
+        <label class="field"><span>Price</span><input class="input" id="fPrice"></label>
+      </div>
+      <div class="grid2">
+        <label class="field"><span>Drivetrain</span><input class="input" id="fDrive" placeholder="e.g. 4WD" maxlength="20"></label>
+        <label class="field"><span>Fuel</span><input class="input" id="fFuel" placeholder="e.g. Gasoline" maxlength="30"></label>
+      </div>
+      <div class="grid2">
+        <label class="field"><span>Engine</span><input class="input" id="fEngine" placeholder="e.g. 5.3L V8" maxlength="60"></label>
+        <label class="field"><span>Transmission</span><input class="input" id="fTrans" placeholder="e.g. 6-speed Automatic" maxlength="40"></label>
+      </div>
+      <label class="field"><span>Notes</span><textarea class="input" id="fNotes" rows="3"></textarea></label>
+
+      <h3 style="font-size:15px;margin:18px 0 2px">Exterior walk-around photos</h3>
+      <p class="hint">Photos are pulled automatically from your guided walk-around video. Tap the star on a photo to make it the cover image shown in the inventory grid.</p>
+      <div class="guide-box">
+        <b>Guided walk-around video</b>
+        <span>Opens your camera. Record one slow lap around the vehicle and we automatically pull out enough frames for a smooth spin. Pick the closest vehicle type:</span>
+        <div class="tchips" id="typeChips"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="guidedBtn">Open guided camera</button><button type="button" class="btn" id="videoFileBtn">Use a video file</button></div>
+      </div>
+      <div class="photo-grid" id="extGrid"></div>
+      <div class="progress" id="extProgress"></div>
+
+      <h3 style="font-size:15px;margin:18px 0 2px">Interior video</h3>
+      <p class="hint">One video moving through the cabin &mdash; dashboard, front seats, back seats, cargo area. Frames are pulled out automatically, same as the exterior.</p>
+      <div class="guide-box">
+        <b>Guided interior video</b>
+        <span>Opens your camera. Record one slow pass through the cabin and we automatically pull out enough frames for a smooth look-around.</span>
+        <button type="button" class="btn primary" id="guidedIntBtn">Open guided camera</button>
+      </div>
+      <div class="photo-grid" id="intGrid"></div>
+      <div class="progress" id="intProgress"></div>
+
+      <h3 style="font-size:15px;margin:18px 0 2px">Showroom extras</h3>
+      <p class="hint">Pin features and condition notes on your photos so shoppers can tap them, and add a 360&deg; cabin panorama. Both are optional and only appear for shoppers once you add them.</p>
+      <div class="guide-box">
+        <b>Hotspots</b>
+        <span id="hsInfo"></span>
+        <button type="button" class="btn primary" id="hsBtn">Edit hotspots</button>
+      </div>
+      <div class="guide-box">
+        <b>Interior 360&deg; panorama</b>
+        <span id="panoInfo"></span>
+        <input type="file" id="panoFile" accept="image/jpeg,image/png,image/webp" hidden>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="panoBtn">Upload panorama</button><button type="button" class="btn danger" id="panoRm" hidden>Remove panorama</button></div>
+      </div>
+
+      <h3 style="font-size:15px;margin:18px 0 2px">Share &amp; embed</h3>
+      <p class="hint">Put this vehicle&rsquo;s 360&deg; viewer on your own website, or print the QR code for the windshield or a sign.</p>
+      <div class="guide-box" id="embedBox">
+        <b>Embed code</b>
+        <textarea class="input" id="embedCode" rows="3" readonly style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button type="button" class="btn primary" id="embedCopy">Copy embed code</button><button type="button" class="btn" id="linkCopy">Copy link</button><a class="btn" id="embedOpen" target="_blank" rel="noopener">Preview</a></div>
+        <div id="embedNote" class="hint"></div>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px"><div id="qrBox" style="width:132px;height:132px;background:#fff;border-radius:8px;overflow:hidden"></div><div style="display:flex;flex-direction:column;gap:8px"><button type="button" class="btn" id="qrDownload">Download QR (SVG)</button><span class="hint" style="margin:0">Opens this vehicle&rsquo;s page.</span></div></div>
+      </div>
+
+      <div class="sheet-foot">
+        <button class="btn" id="cancelBtn">Cancel</button>
+        <button class="btn primary" id="saveBtn">Save vehicle</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const f = sel => overlay.querySelector(sel);
+  f('#fYear').value = vehicle.year; f('#fMake').value = vehicle.make; f('#fModel').value = vehicle.model;
+  f('#fTrim').value = vehicle.trim; f('#fStock').value = vehicle.stock; f('#fVin').value = vehicle.vin;
+  f('#fOdo').value = vehicle.odometer; f('#fPrice').value = vehicle.price; f('#fNotes').value = vehicle.notes;
+  f('#fDrive').value = vehicle.drivetrain || ''; f('#fFuel').value = vehicle.fuel || ''; f('#fEngine').value = vehicle.engine || ''; f('#fTrans').value = vehicle.transmission || '';
+
+  let exterior = [...vehicle.exterior];
+  let bodyType = vehicle.bodyType || '';
+  let coverUrl = exterior[Number.isInteger(vehicle.coverIndex) ? vehicle.coverIndex : 0] || exterior[0] || null;
+  const pendingDelete = [];
+  let hotspots = Array.isArray(vehicle.hotspots) ? vehicle.hotspots.slice() : [];
+  let panorama = typeof vehicle.panorama === 'string' ? vehicle.panorama : '';
+  function renderTypeChips() {
+    f('#typeChips').innerHTML = AutoSpinGuide.TYPE_ORDER.map(k => `<button type="button" data-t="${k}" aria-pressed="${k === bodyType}">${AutoSpinGuide.TYPES[k].label}</button>`).join('');
+  }
+  const applyDecoded = d => { const t = AutoSpinGuide.typeFromDecode(d); if (t && !bodyType) { bodyType = t; renderTypeChips(); } };
+  let interiorShots = [...(vehicle.interiorShots || [])];
+
+  function renderExtGrid() {
+    const g = f('#extGrid');
+    g.innerHTML = exterior.map((url, i) => `
+      <div class="ph${url === coverUrl ? ' cover' : ''}" data-i="${i}">
+        <img src="${url}" alt="">
+        <span class="idx">${i + 1}</span>
+        ${url === coverUrl ? '<span class="covertag">Cover</span>' : ''}
+        <button type="button" class="cvr" data-cover="${i}" title="${url === coverUrl ? 'This is the inventory cover photo' : 'Set as inventory cover photo'}">${url === coverUrl ? '★' : '☆'}</button>
+        <div class="ops">
+          <button type="button" data-op="left" title="Move earlier" ${i === 0 ? 'disabled' : ''}>&larr;</button>
+          <button type="button" data-op="remove" title="Remove">&times;</button>
+          <button type="button" data-op="right" title="Move later" ${i === exterior.length - 1 ? 'disabled' : ''}>&rarr;</button>
+        </div>
+      </div>`).join('');
+  }
+  function renderIntGrid() {
+    const g = f('#intGrid');
+    g.innerHTML = interiorShots.map((url, i) => `
+      <div class="ph" data-i="${i}">
+        <img src="${url}" alt="">
+        <span class="idx">${i + 1}</span>
+        <div class="ops">
+          <button type="button" data-op="left" title="Move earlier" ${i === 0 ? 'disabled' : ''}>&larr;</button>
+          <button type="button" data-op="remove" title="Remove">&times;</button>
+          <button type="button" data-op="right" title="Move later" ${i === interiorShots.length - 1 ? 'disabled' : ''}>&rarr;</button>
+        </div>
+      </div>`).join('');
+  }
+  renderExtGrid(); renderIntGrid();
+  renderTypeChips();
+  AdminBg.mount(overlay, { vehicleId: vehicle.id, getExterior: () => exterior, uploadBlob, deletePhoto, toast, ensureSaved: () => autoSave() });
+  f('#typeChips').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (!b) return; bodyType = b.dataset.t; renderTypeChips(); });
+  f('#guidedBtn').addEventListener('click', () => {
+    if (exterior.length && !confirm(`This will replace the ${exterior.length} exterior photos already on this vehicle. Continue?`)) return;
+    AutoSpinGuide.openGuidedCamera({
+      type: bodyType || 'suv',
+      onType: t => { bodyType = t; renderTypeChips(); },
+      onShot: blob => uploadBlob(vehicle.id, 'exterior', blob),
+      onDiscard: url => deletePhoto(url),
+      onError: err => toast('A photo failed to upload: ' + err.message),
+      onDone: (urls, type) => {
+        const good = urls.filter(Boolean);
+        if (!good.length) return;
+        bodyType = type || bodyType;
+        exterior.forEach(u => pendingDelete.push(u));   // old set is removed once you save
+        exterior = good; coverUrl = exterior[0] || null; renderExtGrid(); renderTypeChips();
+        toast(good.length + ' photos added.');
+        autoSave().catch(() => {});
+      },
+    });
+  });
+  f('#videoFileBtn').addEventListener('click', () => {
+    if (exterior.length && !confirm(`This will replace the ${exterior.length} exterior photos already on this vehicle. Continue?`)) return;
+    AS360Frames.open({
+      onShot: blob => uploadBlob(vehicle.id, 'exterior', blob),
+      onDiscard: url => deletePhoto(url),
+      onDone: urls => {
+        const good = urls.filter(Boolean); if (!good.length) return;
+        exterior.forEach(u => pendingDelete.push(u));
+        exterior = good; coverUrl = exterior[0] || null; renderExtGrid();
+        toast(good.length + ' frames added.');
+        autoSave().catch(() => {});
+      },
+    });
+  });
+  f('#guidedIntBtn').addEventListener('click', () => {
+    if (interiorShots.length && !confirm(`This will replace the ${interiorShots.length} interior photos already on this vehicle. Continue?`)) return;
+    AutoSpinGuide.openGuidedCamera({
+      kind: 'interior',
+      onShot: blob => uploadBlob(vehicle.id, 'interior', blob),
+      onDiscard: url => deletePhoto(url),
+      onError: err => toast('A photo failed to upload: ' + err.message),
+      onDone: (urls) => {
+        const good = urls.filter(Boolean);
+        if (!good.length) return;
+        interiorShots.forEach(u => pendingDelete.push(u));   // old set is removed once you save
+        interiorShots = good; renderIntGrid();
+        toast(good.length + ' interior photos added.');
+        autoSave().catch(() => {});
+      },
+    });
+  });
+  f('#fVin').addEventListener('change', () => {
+    const v = f('#fVin').value.trim().toUpperCase();
+    if (/^[A-HJ-NPR-Z0-9]{17}$/.test(v)) decodeVin(v, overlay, applyDecoded);
+  });
+
+  f('#extGrid').addEventListener('click', async e => {
+    const cvr = e.target.closest('button[data-cover]');
+    if (cvr) { coverUrl = exterior[+cvr.dataset.cover]; renderExtGrid(); return; }
+    const btn = e.target.closest('button[data-op]'); if (!btn) return;
+    const i = +btn.closest('.ph').dataset.i;
+    if (btn.dataset.op === 'remove') {
+      const [gone] = exterior.splice(i, 1); deletePhoto(gone);
+      if (gone === coverUrl) coverUrl = exterior[0] || null;
+    }
+    else if (btn.dataset.op === 'left' && i > 0) { [exterior[i - 1], exterior[i]] = [exterior[i], exterior[i - 1]]; }
+    else if (btn.dataset.op === 'right' && i < exterior.length - 1) { [exterior[i + 1], exterior[i]] = [exterior[i], exterior[i + 1]]; }
+    renderExtGrid();
+  });
+  f('#intGrid').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-op]'); if (!btn) return;
+    const i = +btn.closest('.ph').dataset.i;
+    if (btn.dataset.op === 'remove') { const [gone] = interiorShots.splice(i, 1); deletePhoto(gone); }
+    else if (btn.dataset.op === 'left' && i > 0) { [interiorShots[i - 1], interiorShots[i]] = [interiorShots[i], interiorShots[i - 1]]; }
+    else if (btn.dataset.op === 'right' && i < interiorShots.length - 1) { [interiorShots[i + 1], interiorShots[i]] = [interiorShots[i], interiorShots[i + 1]]; }
+    renderIntGrid();
+  });
+
+  // the shared VIN scanner (same as Lot Management): barcode + two AI readers, live barcode scan
+  f('#scanVinBtn').addEventListener('click', () => VinScan.open({
+    current: f('#fVin').value.trim(),
+    onVin: v => { f('#fVin').value = v; decodeVin(v, overlay, applyDecoded); },
+  }));
+  f('#vinPhotoInput').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (file) await scanVinPhoto(overlay, file, foundVin => {
+      f('#fVin').value = foundVin;
+      decodeVin(foundVin, overlay, applyDecoded);
+    });
+  });
+
+  /* ---- share & embed ---- */
+  (function () {
+    const base = location.pathname.replace(/\/admin(\.html)?\/?$/, '');
+    const embedUrl = () => location.origin + [base, 'embed', encodeURIComponent(vehicle.id)].join('/');
+    const pageUrl = () => location.origin + [base, 'car.html'].join('/') + '?id=' + encodeURIComponent(vehicle.id);
+    const title = () => [f('#fYear').value, f('#fMake').value, f('#fModel').value].filter(Boolean).join(' ') || 'Vehicle';
+    const code = () => `<iframe src="${embedUrl()}" title="${esc(title())} 360° view" width="100%" height="520" style="border:0;border-radius:12px" loading="lazy" allow="fullscreen; accelerometer; gyroscope" allowfullscreen></iframe>`;
+    function refresh() {
+      f('#embedCode').value = code();
+      f('#embedOpen').href = embedUrl();
+      f('#embedNote').textContent = isNew ? 'Save the vehicle first: the embed link works once it is saved.' : 'Anyone can view this embed, so only paste it for vehicles you want public.';
+      try { f('#qrBox').innerHTML = AS360QR.svg(pageUrl(), { scale: 4 }).replace(/width="\d+" height="\d+"/, 'width="132" height="132"'); } catch (e) { f('#qrBox').textContent = ''; }
+    }
+    refresh();
+    ['#fYear', '#fMake', '#fModel'].forEach(s => f(s).addEventListener('input', refresh));
+    const copy = async (txt, btn, label) => { try { await navigator.clipboard.writeText(txt); } catch (e) { f('#embedCode').select(); document.execCommand && document.execCommand('copy'); } const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = label || o; }, 1400); };
+    f('#embedCopy').addEventListener('click', e => copy(code(), e.currentTarget, 'Copy embed code'));
+    f('#linkCopy').addEventListener('click', e => copy(pageUrl(), e.currentTarget, 'Copy link'));
+    f('#qrDownload').addEventListener('click', () => {
+      const svg = AS360QR.svg(pageUrl(), { scale: 10 }), a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })); a.download = (title().replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'vehicle') + '-qr.svg';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    });
+  })();
+
+  /* ---- showroom extras: hotspots + cabin panorama ---- */
+  const hsInfo = () => {
+    const n = hotspots.length;
+    f('#hsInfo').textContent = n ? `${n} pin${n === 1 ? '' : 's'} placed (${hotspots.filter(h => h.kind === 'condition').length} condition notes).` : 'No pins yet. Add pins for features (heated seats, tow package) or honest condition notes (a small ding).';
+    f('#panoInfo').textContent = panorama ? 'A cabin panorama is set. Shoppers see it under Interior.' : 'Upload one equirectangular (2:1) photo from a 360 camera. Normal wide photos are rejected so nobody sees a distorted view.';
+    f('#panoRm').hidden = !panorama; f('#panoBtn').textContent = panorama ? 'Replace panorama' : 'Upload panorama';
+  };
+  hsInfo();
+  f('#hsBtn').addEventListener('click', () => {
+    if (!window.AS360Showroom) { toast('The hotspot editor did not load. Refresh the page and try again.'); return; }
+    AS360Showroom.openEditor({
+      hotspots, exterior, interior: interiorShots, panorama,
+      uploadPhoto: async file => {
+        if (!/^image\//.test(file.type)) throw new Error('Choose a photo.');
+        return uploadBlob(vehicle.id, 'interior', file);
+      },
+      onDropPhoto: url => pendingDelete.push(url),
+      onSave: async list => { hotspots = list; hsInfo(); if (!isNew || exterior.length || interiorShots.length) await autoSave(); toast('Hotspots saved.'); },
+    });
+  });
+  f('#panoBtn').addEventListener('click', () => f('#panoFile').click());
+  f('#panoRm').addEventListener('click', async () => {
+    if (!confirm('Remove the cabin panorama? Pins placed on it will be removed too.')) return;
+    if (panorama) pendingDelete.push(panorama);
+    panorama = ''; hotspots = hotspots.filter(h => h.view !== 'pano'); hsInfo();
+    try { await autoSave(); toast('Panorama removed.'); } catch (e) {}
+  });
+  f('#panoFile').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
+    const btn = f('#panoBtn'); btn.disabled = true; btn.textContent = 'Checking photo…';
+    try {
+      const bmp = await createImageBitmap(file), r = bmp.width / bmp.height;
+      if (r < 1.9 || r > 2.1) { bmp.close && bmp.close(); throw new Error('That photo is not 2:1 (it is ' + bmp.width + '×' + bmp.height + '). A 360° panorama must be exactly twice as wide as it is tall, as exported by a 360 camera.'); }
+      const k = Math.min(1, 8192 / bmp.width), c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+      const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.88));
+      if (!blob) throw new Error('Could not prepare the photo.');
+      btn.textContent = 'Uploading…';
+      const rr = await fetch(`/api/upload?vehicleId=${encodeURIComponent(vehicle.id)}&kind=interior&pano=1`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob });
+      const d = await rr.json().catch(() => ({})); if (!rr.ok) throw new Error(d.error || 'Upload failed');
+      if (panorama) pendingDelete.push(panorama);
+      panorama = d.url; hsInfo();
+      if (!isNew || exterior.length || interiorShots.length) await autoSave();
+      toast('Panorama added. Shoppers will see it under Interior.');
+    } catch (er) { toast(er.message); }
+    finally { btn.disabled = false; hsInfo(); }
+  });
+
+  f('#cancelBtn').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  let saving = null;   // an auto-save in flight
+  async function saveVehicle() {
+    const payload = {
+      id: vehicle.id, year: f('#fYear').value.trim(), make: f('#fMake').value.trim(), model: f('#fModel').value.trim(),
+      trim: f('#fTrim').value.trim(), stock: f('#fStock').value.trim(), vin: f('#fVin').value.trim(),
+      odometer: f('#fOdo').value.trim(), price: f('#fPrice').value.trim(), notes: f('#fNotes').value.trim(),
+      drivetrain: f('#fDrive').value.trim(), fuel: f('#fFuel').value.trim(), engine: f('#fEngine').value.trim(), transmission: f('#fTrans').value.trim(),
+      exterior, interiorShots, bodyType, hotspots, panorama,
+      coverIndex: Math.max(0, exterior.indexOf(coverUrl)),
+    };
+    if (isNew) { await api('/api/vehicles', { method: 'POST', body: JSON.stringify(payload) }); isNew = false; }
+    else await api('/api/vehicle?id=' + encodeURIComponent(vehicle.id), { method: 'PUT', body: JSON.stringify(payload) });
+  }
+  // Saves quietly as soon as there are photos (and before a background is applied), so a closed
+  // editor, a reload or a crashed tab never loses a vehicle whose photos are already uploaded.
+  async function autoSave() {
+    if (!exterior.length && !interiorShots.length) return;
+    if (saving) { await saving.catch(() => {}); }
+    saving = saveVehicle();
+    try { await saving; loadList(); }
+    catch (e) { toast('Auto-save failed: ' + e.message + ' — tap Save vehicle to try again.'); throw e; }
+    finally { saving = null; }
+  }
+
+  f('#saveBtn').addEventListener('click', async () => {
+    const saveBtn = f('#saveBtn'); saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    try {
+      if (saving) await saving.catch(() => {});
+      await saveVehicle();
+      overlay.remove(); toast('Saved.'); loadList();
+      pendingDelete.forEach(u => deletePhoto(u));
+    } catch (e) {
+      toast(e.message); saveBtn.disabled = false; saveBtn.textContent = 'Save vehicle';
+    }
+  });
+}
+
+(async () => { (await checkSession()) ? renderManager() : renderLogin(); })();
+</script>
+</body>
+</html>

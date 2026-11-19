@@ -1,0 +1,108 @@
+.viewer-shell{--ink:#f4f2ee; --vmuted:#b9bec6; --glass:rgba(12,14,17,.72); color-scheme:dark;
+  position:relative; width:100%; height:100%; border-radius:var(--r-xl,28px); overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%,#1a1d22 0%,#0e1013 70%); border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.4),0 1px 0 rgba(255,255,255,.05) inset; isolation:isolate}
+.viewer-shell *,.viewer-shell *::before,.viewer-shell *::after{box-sizing:border-box}
+.viewer-shell [hidden]{display:none!important}
+.viewer-shell button{font:inherit; color:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent}
+.viewer-shell :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.viewer-shell .v{position:relative; width:100%; height:100%; overflow:hidden; touch-action:pan-y; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; overscroll-behavior-x:contain}
+.viewer-shell .v[data-zoom="on"]{touch-action:none}
+.viewer-shell .v canvas{-webkit-user-drag:none; user-select:none}
+.viewer-shell .v canvas.layer{position:absolute; inset:0; width:100%; height:100%; display:block}
+.viewer-shell .v[data-view="ext"][data-zoom="off"]{cursor:grab}
+.viewer-shell .v.dragging{cursor:grabbing!important}
+.viewer-shell .v[data-zoom="on"]{cursor:crosshair}
+.viewer-shell .v[data-view="int"]{cursor:grab}
+.viewer-shell .top{position:absolute; top:16px; left:16px; right:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; pointer-events:none; z-index:4}
+.viewer-shell .top > *{pointer-events:auto}
+.viewer-shell .seg{display:flex; gap:2px; padding:3px; background:var(--glass); border:1px solid rgba(255,255,255,.1); border-radius:14px; -webkit-backdrop-filter:saturate(1.4) blur(14px); backdrop-filter:saturate(1.4) blur(14px)}
+.viewer-shell .seg button{border:0; background:transparent; padding:9px 18px; border-radius:11px; font-weight:600; font-size:14px; letter-spacing:.01em; color:var(--vmuted); transition:background .25s,color .25s}
+.viewer-shell .seg button[aria-pressed="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 86%,#fff),var(--accent)); color:var(--accent-ink); box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 35%,transparent)}
+.viewer-shell .seg button:disabled{opacity:.4; cursor:default}
+.viewer-shell .ibtn{width:44px; height:44px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); border-radius:13px; background:var(--glass); -webkit-backdrop-filter:saturate(1.4) blur(14px); backdrop-filter:saturate(1.4) blur(14px); color:var(--ink)}
+.viewer-shell .bar .ibtn{border:0; background:rgba(255,255,255,.08)}
+.viewer-shell .ibtn:hover{background:rgba(255,255,255,.16)}
+.viewer-shell .ibtn[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+.viewer-shell .ibtn svg{width:20px; height:20px}
+.viewer-shell .hint{position:absolute; top:76px; left:50%; transform:translateX(-50%); background:rgba(10,12,14,.72); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.08); color:var(--ink); padding:8px 18px; border-radius:999px; font-size:13.5px; letter-spacing:.02em; pointer-events:none; white-space:nowrap; z-index:3; transition:opacity .4s}
+.viewer-shell .hint.gone{opacity:0}
+.viewer-shell .bottom{position:absolute; left:16px; right:16px; bottom:16px; display:flex; flex-direction:column; align-items:center; gap:8px; z-index:4; pointer-events:none}
+.viewer-shell .bottom > *{pointer-events:auto}
+.viewer-shell .bar{display:flex; align-items:center; gap:6px; width:100%; max-width:560px; padding:7px; background:var(--glass); border:1px solid rgba(255,255,255,.1); border-radius:18px; -webkit-backdrop-filter:saturate(1.4) blur(14px); backdrop-filter:saturate(1.4) blur(14px)}
+.viewer-shell .scrub{flex:1; min-width:0; padding:0 6px}
+.viewer-shell .scrub input{width:100%; margin:4px 0; accent-color:var(--accent)}
+.viewer-shell .bar .label{flex:1; text-align:center; font-size:13.5px; color:var(--vmuted)}
+.viewer-shell .chips{display:flex; align-items:center; gap:3px; padding:4px; background:var(--glass); border:1px solid rgba(255,255,255,.1); border-radius:14px; color:var(--vmuted); font-size:13px}
+.viewer-shell .chips button{border:0; background:transparent; font-weight:600; font-size:14px; padding:6px 12px; border-radius:7px; color:var(--vmuted)}
+.viewer-shell .chips button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+.viewer-shell .loupe{animation:vv-fade .18s ease-out; position:absolute; border-radius:50%; border:3px solid var(--accent); overflow:hidden; pointer-events:none; box-shadow:0 12px 32px rgba(0,0,0,.55); background:#20262b; z-index:2}
+.viewer-shell .loupe canvas{width:100%; height:100%; display:block}
+.viewer-shell .target{position:absolute; width:24px; height:24px; margin:-12px 0 0 -12px; border:2px solid var(--accent); border-radius:50%; pointer-events:none; z-index:2}
+.viewer-shell .loading{position:absolute; inset:0; display:grid; place-items:center; background:#0e1013; z-index:5; font-size:14px; color:var(--vmuted)}
+.viewer-shell .loading div{text-align:center}
+.viewer-shell .loading i{display:block; width:200px; height:3px; margin:10px auto 0; border-radius:2px; background:rgba(255,255,255,.12); overflow:hidden}
+.viewer-shell .loading i b{display:block; height:100%; width:0; background:var(--accent); transition:width .2s}
+.viewer-shell .msg{position:absolute; left:50%; top:64px; transform:translateX(-50%); max-width:calc(100% - 24px); background:#f4f6f8; color:#14191e; padding:8px 14px; border-radius:10px; font-size:14px; z-index:6; text-align:center}
+.viewer-shell .empty{position:absolute; inset:0; display:grid; place-items:center; color:var(--vmuted); font-size:15px; z-index:3}
+.viewer-shell .ilabel{position:absolute; left:50%; top:76px; transform:translateX(-50%); background:rgba(10,12,14,.72); color:var(--ink); padding:6px 14px; border-radius:999px; font-size:13.5px; font-weight:600; pointer-events:none; white-space:nowrap; z-index:3}
+.viewer-shell .demoTag{position:absolute; left:10px; bottom:10px; font-size:12px; color:var(--vmuted); background:rgba(10,12,14,.65); padding:3px 9px; border-radius:6px; z-index:3; pointer-events:none}
+@keyframes vv-fade{from{opacity:0}to{opacity:1}}
+.viewer-shell .pbar{position:absolute; left:0; right:0; top:0; height:3px; background:rgba(255,255,255,.08); z-index:5; pointer-events:none; opacity:1; transition:opacity .45s}
+.viewer-shell .pbar b{display:block; height:100%; width:0; background:var(--accent); transition:width .15s linear}
+.viewer-shell .pbar.done{opacity:0}
+@media (prefers-reduced-motion: reduce){ .viewer-shell *{transition:none!important} }
+
+.viewer-shell .ibtn,.viewer-shell .seg button,.viewer-shell .chips button{transition:background .25s,color .25s,transform .18s}
+.viewer-shell .ibtn:active{transform:scale(.94)}
+@media (max-width:640px){
+  .viewer-shell{border-radius:var(--r-lg,20px)}
+  .viewer-shell .top{top:10px; left:10px; right:10px}
+  .viewer-shell .bottom{left:10px; right:10px; bottom:10px}
+  .viewer-shell .hint,.viewer-shell .ilabel{top:66px}
+  .viewer-shell .seg button{padding:9px 14px}
+}
+
+/* ---- loading, errors, single-photo state ---- */
+.viewer-shell .loading .spin{display:block; width:34px; height:34px; margin:0 auto 14px; border-radius:50%; border:3px solid rgba(255,255,255,.12); border-top-color:var(--accent); animation:vv-spin .8s linear infinite}
+@keyframes vv-spin{to{transform:rotate(360deg)}}
+.viewer-shell .err{position:absolute; inset:0; display:grid; place-items:center; padding:24px; background:#0e1013; z-index:7; text-align:center; color:var(--vmuted)}
+.viewer-shell .err div{max-width:320px}
+.viewer-shell .err svg{width:40px; height:40px; color:var(--accent); margin-bottom:10px}
+.viewer-shell .err p{margin:0 0 16px; font-size:15px; line-height:1.5; color:var(--ink)}
+.viewer-shell .btn-retry{border:0; border-radius:12px; padding:12px 22px; min-height:44px; font-weight:600; font-size:15px; background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 86%,#fff),var(--accent)); color:var(--accent-ink)}
+.viewer-shell .demoTag{left:50%; transform:translateX(-50%); bottom:84px; max-width:calc(100% - 24px); text-align:center; font-size:12.5px; padding:5px 12px; border-radius:999px; line-height:1.35}
+.viewer-shell .v[data-spin="off"]{cursor:default}
+.viewer-shell .v[data-spin="off"][data-zoom="on"]{cursor:crosshair}
+.viewer-shell .v:focus-visible{outline:2px solid var(--accent); outline-offset:-4px; border-radius:inherit}
+.viewer-shell .seg button:disabled{cursor:not-allowed}
+
+/* ---- full screen (native, or full-window on iPhone) ---- */
+.viewer-shell.is-fs{border-radius:0; border:0; box-shadow:none}
+.viewer-shell.pfs{position:fixed!important; inset:0; width:100%; height:100%; height:100dvh; z-index:2147483000; max-width:none}
+html.vv-lock,html.vv-lock body{overflow:hidden!important}
+.viewer-shell.is-fs .top{top:max(16px,env(safe-area-inset-top)); left:max(16px,env(safe-area-inset-left)); right:max(16px,env(safe-area-inset-right))}
+.viewer-shell.is-fs .bottom{bottom:max(16px,env(safe-area-inset-bottom)); left:max(16px,env(safe-area-inset-left)); right:max(16px,env(safe-area-inset-right))}
+.viewer-shell.is-fs .bar{max-width:640px}
+
+/* ---- short screens (phones on their side) ---- */
+@media (max-height:480px){
+  .viewer-shell .ibtn{width:38px; height:38px; border-radius:11px}
+  .viewer-shell .seg button{padding:6px 14px; font-size:13px}
+  .viewer-shell .top{top:8px} .viewer-shell .bottom{bottom:8px}
+  .viewer-shell .hint,.viewer-shell .ilabel{top:54px}
+  .viewer-shell .bar{padding:4px}
+}
+@media (max-width:380px){
+  .viewer-shell .seg button{padding:8px 11px; font-size:13px}
+  .viewer-shell .bar{gap:3px}
+  .viewer-shell .ibtn{width:40px; height:40px}
+}
+@media (hover:none){ .viewer-shell .ibtn:hover{background:var(--glass)} .viewer-shell .bar .ibtn:hover{background:rgba(255,255,255,.08)} }
+@media (pointer:coarse){ .viewer-shell button{min-height:44px} .viewer-shell input[type=range]{min-height:32px} }
+
+.viewer-shell .chips.opts{flex-wrap:nowrap; max-width:100%; overflow-x:auto; scrollbar-width:none}
+.viewer-shell .chips.opts::-webkit-scrollbar{display:none}
+.viewer-shell .chips.opts button{min-width:44px; min-height:44px; flex:none}
+.viewer-shell .chips.opts span{flex:none}
+@media (max-width:420px){.viewer-shell .chips.opts{gap:4px; padding:4px 6px}.viewer-shell .chips.opts button{padding:0 10px}}

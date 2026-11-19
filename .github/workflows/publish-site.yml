@@ -1,49 +1,102 @@
 name: Publish site files
 
-# Sends the site files in this repository (site/bg-studio.js, guide.js, guide-plus.js) to the live
-# AutoSpin360 Worker on Cloudflare whenever they change on main. Needs the CF_API_TOKEN secret
-# (Cloudflare API token, Workers Scripts: Edit); until it's added this just says so and stops.
+# Publishes the website files in site/ to the live AutoSpin360 Worker on Cloudflare.
+#
+#  1. Preview  - always runs first. Lists exactly which files would change. Changes nothing.
+#  2. Publish  - only after YOU approve it in GitHub (Environment "production"). Backs up the live Worker,
+#                publishes, checks the live site, and restores the backup by itself if a check fails.
+#
+# Starts when changes reach main, or when you press "Run workflow". Tick "Dry run" to only preview.
 on:
   push:
     branches: [main]
-    paths: ["site/bg-studio.js", "site/guide.js", "site/guide-plus.js", "scripts/deploy_site.py"]
+    paths: ["site/**", "scripts/deploy_site.py", "deploy/**"]
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Only show what would change"
+        description: "Dry run: only show what would change. Nothing is published. (Untick to publish; you will be asked to approve first.)"
         type: boolean
-        default: false
+        default: true
 
 concurrency:
   group: publish-site
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  publish:
+  preview:
+    name: Preview (changes nothing)
     runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
     env:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
     steps:
-      - name: Token set up?
+      - name: Set up?
         id: tok
         run: |
-          if [ -z "$CF_API_TOKEN" ]; then echo "::notice::CF_API_TOKEN isn't set yet, so nothing was published."; echo "ok=no" >> "$GITHUB_OUTPUT"; else echo "ok=yes" >> "$GITHUB_OUTPUT"; fi
+          if [ -z "$CF_API_TOKEN" ]; then
+            echo "::error::CF_API_TOKEN isn't set yet (GitHub > Settings > Secrets and variables > Actions), so nothing can be previewed or published."
+            exit 1
+          fi
       - uses: actions/checkout@v4
-        if: steps.tok.outputs.ok == 'yes'
       - uses: actions/setup-python@v5
-        if: steps.tok.outputs.ok == 'yes'
         with:
           python-version: "3.11"
-      - name: Publish
-        if: steps.tok.outputs.ok == 'yes'
+      - run: pip install requests==2.32.3
+      - name: What would change?
+        id: plan
+        run: python scripts/deploy_site.py plan
+      - name: Is publishing switched on?
         run: |
-          pip install requests==2.32.3
-          python scripts/deploy_site.py ${{ inputs.dry_run && '--dry-run' || '' }}
-      - name: Keep the previous version (for rolling back)
-        if: steps.tok.outputs.ok == 'yes' && always()
+          if [ "${{ vars.APPROVAL_GATE_READY }}" != "true" ]; then
+            echo "::notice::Publishing is switched off until the approval step is set up (variable APPROVAL_GATE_READY). This run only previewed."
+          fi
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}" = "true" ]; then
+            echo "::notice::Dry run: nothing was published."
+          fi
+
+  publish:
+    name: Publish (waits for your approval)
+    needs: preview
+    if: >-
+      needs.preview.outputs.changes == 'yes' &&
+      vars.APPROVAL_GATE_READY == 'true' &&
+      (github.event_name == 'push' || inputs.dry_run == false)
+    runs-on: ubuntu-latest
+    environment: production        # <- GitHub pauses here until the required reviewer (you) clicks Approve
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Backup password set up?
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_PASSPHRASE secret isn't set, so no safe backup can be made. Nothing was published."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests==2.32.3
+      - name: Back up, publish, check
+        run: python scripts/deploy_site.py deploy
+      - name: Encrypt the backup (this repository is public, so the backup must not be readable by others)
+        if: always()
+        run: |
+          if [ -d backup ]; then
+            tar czf backup.tgz backup
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in backup.tgz -out worker-backup.tgz.enc -pass env:BACKUP_PASSPHRASE
+            rm -rf backup backup.tgz
+          fi
+      - name: Keep the backup (for rolling back)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: worker-before
-          path: backup/worker-before.js
+          name: worker-backup-${{ github.run_id }}
+          path: worker-backup.tgz.enc
           if-no-files-found: ignore
-          retention-days: 30
+          retention-days: 90
