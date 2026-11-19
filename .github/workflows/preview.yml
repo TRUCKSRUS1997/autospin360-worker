@@ -4,8 +4,11 @@ name: Test and preview
 #
 #  1. Test     - always. Local checks and headless-browser checks with generated data. No secrets, no network to Cloudflare.
 #  2. Preview  - only when the repository variable PREVIEW_DEPLOY_READY is "true". Publishes this branch's site/ files to the
-#                separate "autospin360-preview" Worker (its own empty test bucket), seeds one generated test vehicle, and
-#                re-runs the browser checks against it. Production's Worker, bucket, secrets and settings are never written.
+#                "autospin360-preview" Worker in a SEPARATE Cloudflare account (its own empty test bucket), seeds one generated
+#                test vehicle, and re-runs the browser checks against it.
+#                Credentials: the preview account's own token, plus a read-only token that can only download the production
+#                Worker's code. The production deploy token (CF_API_TOKEN) is never used here. Nothing in the production
+#                account can be written from this workflow.
 on:
   push:
     branches: ["stage-*", "preview/**"]
@@ -41,11 +44,14 @@ jobs:
     if: >-
       vars.PREVIEW_DEPLOY_READY == 'true' &&
       github.event_name != 'pull_request' &&
+      (startsWith(github.ref_name, 'stage-') || startsWith(github.ref_name, 'preview/')) &&
       github.repository == 'TRUCKSRUS1997/autospin360-worker'
     runs-on: ubuntu-latest
     environment: preview
     env:
-      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      PREVIEW_CF_API_TOKEN: ${{ secrets.PREVIEW_CF_API_TOKEN }}
+      PREVIEW_CF_ACCOUNT_ID: ${{ secrets.PREVIEW_CF_ACCOUNT_ID }}
+      PROD_CODE_READ_TOKEN: ${{ secrets.PROD_CODE_READ_TOKEN }}
       PREVIEW_ADMIN_PASSWORD: ${{ secrets.PREVIEW_ADMIN_PASSWORD }}
       PREVIEW_OWNER_PASSWORD: ${{ secrets.PREVIEW_OWNER_PASSWORD }}
     steps:

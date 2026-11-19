@@ -33,7 +33,24 @@ class Probe:
 
 
 def shot_hash(el):
-    return hashlib.sha1(el.screenshot()).hexdigest()
+    """The viewer swaps its canvas while it loads, so retry if the element is momentarily gone."""
+    last = None
+    for _ in range(8):
+        try:
+            return hashlib.sha1(el.screenshot(timeout=5000)).hexdigest()
+        except Exception as e:      # element detached / re-rendered
+            last = e
+            el.page.wait_for_timeout(300)
+    raise last
+
+
+def box_of(el):
+    for _ in range(10):
+        b = el.bounding_box()
+        if b:
+            return b
+        el.page.wait_for_timeout(300)
+    return None
 
 
 def run(base=None):
@@ -78,12 +95,18 @@ def run(base=None):
             ok(f"{kind}: no missing page files", not probe.failed, "; ".join(probe.failed[:3]))
             ok(f"{kind}: no sideways scrolling", pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"),
                pg.evaluate("document.documentElement.scrollWidth + ' > ' + window.innerWidth"))
-            box = pg.locator(".viewer-shell").first.bounding_box()
+            box = box_of(pg.locator(".viewer-shell").first)
             vw = pg.viewport_size["width"]
             ok(f"{kind}: viewer fits the screen width", box and box["width"] <= vw + 1 and box["width"] > vw * 0.4, str(box))
             stage = pg.locator(".viewer-shell canvas").first
+            stage.wait_for(state="visible", timeout=15000)
+            pg.wait_for_function("(() => { const c = document.querySelector('.viewer-shell canvas'); const r = c && c.getBoundingClientRect(); return r && r.width > 50 && r.height > 50; })()", timeout=15000)
             before = shot_hash(stage)
-            b = stage.bounding_box()
+            b = box_of(stage)
+            ok(f"{kind}: viewer has a visible picture area", b is not None, "no bounding box")
+            if b is None:
+                ctx.close()
+                continue
             cx, cy = b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
             pg.mouse.move(cx, cy)
             pg.mouse.down()

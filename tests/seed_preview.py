@@ -16,7 +16,7 @@ VID = "preview-spin"
 
 def main():
     base = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
-    if not base.startswith("https://autospin360-preview."):
+    if not base.startswith("https://autospin360-preview.") or "v24svb75kp" in base:
         sys.exit("Refusing: this only seeds the preview Worker (address must start with autospin360-preview).")
     pw = os.environ.get("PREVIEW_ADMIN_PASSWORD")
     if not pw:
