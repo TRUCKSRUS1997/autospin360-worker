@@ -48,3 +48,8 @@ publishes, checks the live site, and restores the backup by itself if a check fa
 `site/guide-plus.js` adds guide lines, a level, height/distance coaching and a pace check to the
 guided camera's walk-around recording (loaded on the dealer admin page after `guide.js`).
 
+
+**Testing and preview (Stage 0):** `tests/` holds the automated checks (see `tests/README.md`). Pushing a `stage-*` branch runs
+them in GitHub (*Test and preview*). Once the variable `PREVIEW_DEPLOY_READY` is `true`, the same run also publishes the branch to a
+separate Worker, `autospin360-preview`, which uses its own empty bucket `autospin360-preview-test`; production is never written.
+Optional secrets for it: `PREVIEW_ADMIN_PASSWORD`, `PREVIEW_OWNER_PASSWORD` (new test-only passwords, not the real ones).
