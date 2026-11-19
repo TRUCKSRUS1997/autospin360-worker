@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Appraisals</title>
+<link rel="manifest" href="/site.webmanifest">
+<link rel="apple-touch-icon" href="/api/icon?size=192">
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AutoSpin360">
+<meta name="theme-color" content="#0a0b0d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css">
+<style>
+.login-wrap{max-width:340px; margin:80px auto; padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:14px}
+.row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
+.vlist{border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.vrow{display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--line)}
+.vrow:last-child{border-bottom:0}
+.vrow .thumb{width:64px; height:44px; border-radius:6px; background:var(--panel2); overflow:hidden; flex:none; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:10px}
+.vrow .thumb img{width:100%; height:100%; object-fit:cover}
+.vrow .meta{flex:1; min-width:0}
+.vrow .meta b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.vrow .meta span{font-size:12px; color:var(--muted)}
+.vrow .actions{display:flex; gap:6px; flex:none}
+.tag{display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--panel2); border:1px solid var(--line); color:var(--muted)}
+.page{max-width:820px; margin:0 auto}
+h3.sec{font-size:15px; margin:22px 0 2px}
+.hint{font-size:12px; color:var(--muted); margin:2px 0 10px}
+.drop{display:flex; flex-direction:column; align-items:center; gap:4px; padding:22px; text-align:center; border:1.5px dashed var(--line); border-radius:10px; background:var(--panel2); cursor:pointer; font-size:13px; color:var(--muted)}
+.drop strong{color:var(--text); font-size:14px}
+.drop input{position:absolute; width:1px; height:1px; opacity:0}
+.progress{font-size:13px; color:var(--accent); margin-top:6px; min-height:1.2em}
+.vin-row{display:flex; gap:6px}
+.vin-row .input{flex:1}
+.vin-row .btn{flex:none; padding:0 12px}
+.vin-row .btn svg{width:18px; height:18px}
+.vin-scan{margin:10px 0 14px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel2)}
+.vin-scan .row2{display:flex; gap:12px; align-items:flex-start}
+.vin-scan img{width:110px; height:72px; object-fit:cover; border-radius:8px; background:#000; flex:none}
+.vin-scan .col{flex:1; min-width:0}
+.vin-scan .status{font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; min-height:20px}
+.vin-scan .confirm{display:flex; gap:8px; margin-top:8px; align-items:center}
+.vin-scan .confirm input{flex:1; font-family:ui-monospace,Menlo,Consolas,monospace}
+.vin-scan .foot{display:flex; justify-content:flex-end; gap:8px; margin-top:10px}
+
+.stage{position:relative; width:100%; aspect-ratio:16/10; background:#15191d; border-radius:12px; overflow:hidden; margin-top:8px}
+.stage canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.stage[data-tagging="1"]{cursor:crosshair}
+.stage .pins{position:absolute; inset:0}
+.stage .pin{position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; background:#e5484d; color:#fff; border:2px solid #fff; font:700 13px/1 ui-sans-serif,system-ui; display:grid; place-items:center; box-shadow:0 2px 6px rgba(0,0,0,.5); cursor:pointer}
+.stage .empty{position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); font-size:14px}
+.stage .bar{position:absolute; left:8px; right:8px; bottom:8px; display:flex; align-items:center; gap:6px; padding:6px; background:rgba(10,12,14,.75); border-radius:12px; backdrop-filter:blur(8px)}
+.stage .bar input[type=range]{flex:1; accent-color:var(--accent)}
+.stage .ibtn{width:36px; height:36px; border:0; border-radius:8px; background:rgba(255,255,255,.1); color:#fff; display:grid; place-items:center; flex:none}
+.stage .ibtn[aria-pressed="true"]{background:var(--accent); color:#1a1400}
+.stage .fcount{color:#cfd6dc; font-size:12px; padding:0 4px; flex:none; min-width:52px; text-align:center}
+.tagbar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px}
+.tagbar .hint2{font-size:12.5px; color:var(--muted)}
+
+.pinlist{margin-top:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.pinrow{display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--line); font-size:13.5px}
+.pinrow:last-child{border-bottom:0}
+.pinrow .num{width:22px; height:22px; border-radius:50%; background:#e5484d; color:#fff; display:grid; place-items:center; font-size:12px; font-weight:700; flex:none}
+.pinrow .d{flex:1; min-width:0}
+.pinrow .d b{display:block; font-size:13.5px}
+.pinrow .d span{font-size:12px; color:var(--muted)}
+
+.pinedit{position:fixed; inset:0; z-index:50; background:rgba(5,7,9,.6); display:flex; align-items:flex-end; justify-content:center; padding:0}
+.pinedit .card{width:100%; max-width:480px; background:var(--panel); border-radius:16px 16px 0 0; padding:18px}
+@media (min-width:600px){.pinedit{align-items:center; padding:20px}.pinedit .card{border-radius:14px}}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 12px}
+.chips label{position:relative}
+.chips input{position:absolute; opacity:0; inset:0; margin:0; cursor:pointer}
+.chips span{display:inline-flex; padding:6px 11px; border-radius:999px; border:1px solid var(--line); background:var(--panel2); font-size:13px}
+.chips input:checked + span{background:var(--text); color:var(--panel); border-color:var(--text)}
+
+.aiscan{margin-top:22px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--panel2)}
+.aiscan .row{margin:0 0 6px}
+.aiscan p{font-size:13px; color:var(--muted); margin:0}
+.aiscan .row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.aiscan .tag.ok{color:#3ecf8e; border-color:rgba(62,207,142,.4)}
+.aiscan .acts{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px}
+.aiscan .abar{height:4px; border-radius:3px; background:var(--panel); overflow:hidden; margin-top:8px}
+.aiscan .abar b{display:block; height:100%; width:0; background:var(--accent); transition:width .2s}
+.aiscan ol{margin:8px 0 0 18px; padding:0; font-size:13px; color:var(--muted); line-height:1.6}
+.aiscan code{font-size:12px; background:var(--panel); padding:1px 5px; border-radius:4px; color:var(--text)}
+.stage .pin.ai{background:#f5a524; color:#1a1400; border-style:dashed}
+.stage .pin.ai.checked{border-style:solid}
+.pinrow .num.ai{background:#f5a524; color:#1a1400}
+.aitag{display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.03em; padding:1px 6px; border-radius:5px; background:rgba(245,165,36,.16); color:#f5a524; margin-left:6px; vertical-align:1px}
+.aitag.ok{background:rgba(62,207,142,.14); color:#3ecf8e}
+.aitag.lv-likely{background:rgba(229,72,77,.16); color:#ff7a7f}
+.aitag.lv-doubtful{background:rgba(160,170,180,.14); color:#a9b1ba}
+.stage .pin.ai.lv-doubtful,.lb-stage .pin.ai.lv-doubtful{background:#8b939c; color:#fff}
+.cu-count{font-size:12px; font-weight:400; color:var(--muted); margin-left:6px}
+.cu-slots{display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:8px; margin:8px 0 6px}
+.slot{position:relative; aspect-ratio:4/3; border:1.5px dashed var(--line); border-radius:10px; background:var(--panel2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11.5px; color:var(--muted); cursor:pointer; overflow:hidden; text-align:center; padding:6px; line-height:1.25}
+.slot strong{color:var(--text); font-size:12.5px}
+.slot.filled{border-style:solid; padding:0}
+.slot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.slot .cap{position:absolute; left:4px; bottom:4px; right:4px; background:rgba(10,12,14,.78); color:#fff; padding:2px 6px; border-radius:5px; font-size:11px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.slot .cnt{position:absolute; top:4px; right:4px; min-width:20px; height:20px; padding:0 5px; border-radius:10px; background:#e5484d; color:#fff; font-size:11px; font-weight:700; display:grid; place-items:center}
+.slot input{position:absolute; width:1px; height:1px; opacity:0}
+.slot.busy{opacity:.55; pointer-events:none}
+.lightbox{position:fixed; inset:0; z-index:45; background:#07090b; display:flex; flex-direction:column; padding:12px; gap:10px}
+.lb-top,.lb-bar{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; color:#fff}
+.lb-bar{justify-content:center}
+.lb-stage{position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center}
+.lb-stage img{max-width:100%; max-height:100%; display:block; border-radius:8px}
+.lb-stage .pins{position:absolute; inset:0; pointer-events:none}
+.lb-stage .pin{pointer-events:auto; position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; background:#e5484d; color:#fff; border:2px solid #fff; font:700 13px/1 ui-sans-serif,system-ui; display:grid; place-items:center; box-shadow:0 2px 6px rgba(0,0,0,.5); cursor:pointer}
+.lb-stage .pin.ai{background:#f5a524; color:#1a1400; border-style:dashed}
+.lb-stage .pin.ai.checked{border-style:solid}
+.lb-stage[data-tagging="1"]{cursor:crosshair}
+
+/* damage circles: a ring around the damage, number badge on its edge (tap it to edit) */
+.mark{position:absolute; transform:translate(-50%,-50%); pointer-events:none}
+.mark .ring{position:absolute; inset:0; border-radius:50%; border:3px solid #e5484d; box-shadow:0 0 0 1.5px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(0,0,0,.35)}
+.mark.ai .ring{border-color:#f5a524; border-style:dashed}
+.mark.ai.checked .ring{border-style:solid}
+.mark.ai.lv-doubtful .ring{border-color:#c3cad1}
+.stage .mark .pin,.lb-stage .mark .pin{pointer-events:auto; left:85.4%; top:14.6%; width:24px; height:24px; margin:-12px 0 0 -12px; font-size:12px}
+.mark.flash .ring{animation:ringflash 1.4s ease-out 2}
+@keyframes ringflash{0%{box-shadow:0 0 0 1.5px rgba(0,0,0,.55),0 0 0 0 rgba(245,165,36,.9)}100%{box-shadow:0 0 0 1.5px rgba(0,0,0,.55),0 0 0 14px rgba(245,165,36,0)}}
+.stage,.lb-stage{touch-action:pan-y}
+.lb-stage{overflow:hidden; border-radius:8px}
+.lb-stage img{transform-origin:50% 50%; will-change:transform; user-select:none; -webkit-user-select:none; -webkit-user-drag:none}
+.zbar{position:absolute; top:8px; right:8px; z-index:3; display:flex; flex-direction:column; gap:4px; padding:4px; background:rgba(10,12,14,.75); border-radius:10px; backdrop-filter:blur(8px)}
+.zbar button{width:36px; height:34px; border:0; border-radius:7px; background:rgba(255,255,255,.1); color:#fff; font:600 20px/1 ui-sans-serif,system-ui; display:grid; place-items:center; cursor:pointer}
+.zbar .zlv{font-size:11.5px; font-weight:700}
+.zbar .zlv[disabled]{opacity:.55; cursor:default}
+.zhint{position:absolute; left:8px; top:8px; z-index:3; font-size:11.5px; color:#cfd6dc; background:rgba(10,12,14,.7); padding:3px 8px; border-radius:6px; pointer-events:none}
+.sheet-foot{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:20px; padding-top:14px; border-top:1px solid var(--line)}
+</style>
+<link rel="stylesheet" href="/dash.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.6" opacity=".3"/><g class="arc"><path d="M16 4a12 12 0 0 1 12 12" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="28" cy="16" r="2.3" fill="var(--accent)"/></g><path d="M9.2 19.2l1.2-3.4a1.7 1.7 0 0 1 1.6-1.1h8a1.7 1.7 0 0 1 1.6 1.1l1.2 3.4v2.3H9.2z" fill="currentColor"/></svg>AutoSpin<span>360</span></a>
+  <nav id="topNav"></nav>
+</header>
+<script src="/vin-scan.js"></script>
+<main class="wrap page" id="app">
+  <div class="loader"><span class="spin"></span> Loading&hellip;</div>
+</main>
+
+<template id="tpl-login">
+  <div class="login-wrap">
+    <p class="eyebrow">Dealer access</p>
+    <h1>Dealer login</h1>
+    <form id="loginForm">
+      <label class="field"><span>Username</span><input class="input" id="user" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <label class="field"><span>Password</span><input class="input" id="pw" name="password" type="password" autocomplete="current-password"></label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:2px 0 16px">
+        <input type="checkbox" id="remember" checked style="width:auto"> Stay signed in on this device
+      </label>
+      <button class="btn primary" id="loginBtn" type="submit" style="width:100%">Log in</button>
+    </form>
+    <p id="loginErr" style="color:#ff6b72;font-size:13px;margin:10px 0 0" hidden></p>
+  </div>
+</template>
+
+<template id="tpl-list">
+  <div class="row"><h1 style="font-size:22px">Appraisals</h1><button class="btn primary" id="newBtn">+ New appraisal</button></div>
+  <div id="alist"></div>
+</template>
+
+<script>
+const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app = document.getElementById('app');
+const topNav = document.getElementById('topNav');
+const TYPES = { scratch: 'Scratch', chip: 'Paint chip', dent: 'Dent', wheel: 'Wheel', glass: 'Glass', other: 'Other' };
+const SEV = { minor: 'Minor', moderate: 'Moderate', major: 'Major' };
+// Close-up photo slots: [key, label, what to get in the photo]
+const CLOSEUPS = [
+  ['front', 'Front', 'Bumper, grille, hood edge'],
+  ['fd', 'Driver front corner', 'Bumper corner, fender, headlight'],
+  ['ds', 'Driver side', 'Doors and rocker panel'],
+  ['rd', 'Driver rear corner', 'Quarter panel, bumper corner'],
+  ['rear', 'Rear', 'Bumper, tailgate or trunk'],
+  ['rp', 'Passenger rear corner', 'Quarter panel, bumper corner'],
+  ['ps', 'Passenger side', 'Doors and rocker panel'],
+  ['fp', 'Passenger front corner', 'Bumper corner, fender, headlight'],
+  ['wind', 'Windshield', 'Whole glass, look for chips'],
+  ['hood', 'Hood and roof', 'From a step or the side, if you can'],
+  ['wfd', 'Wheel, front driver', 'Rim face and tire sidewall'],
+  ['wrd', 'Wheel, rear driver', 'Rim face and tire sidewall'],
+  ['wrp', 'Wheel, rear passenger', 'Rim face and tire sidewall'],
+  ['wfp', 'Wheel, front passenger', 'Rim face and tire sidewall'],
+];
+
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+async function api(url, opts) {
+  const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && data.error) || ('Request failed (' + r.status + ')'));
+  return data;
+}
+async function checkSession() { try { const r = await api('/api/auth'); return !!r.ok; } catch { return false; } }
+
+/* ---------- photo helpers (shared with vehicle uploads) ---------- */
+async function resizeToJPEG(source, maxDim, quality) {
+  const c = document.createElement('canvas');
+  const w = source.videoWidth || source.width, h = source.videoHeight || source.height;
+  const k = Math.min(1, maxDim / Math.max(w, h));
+  c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+  c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+  return await new Promise(ok => c.toBlob(ok, 'image/jpeg', quality));
+}
+async function uploadFrame(ownerId, kind, blob) {
+  const r = await fetch(`/api/upload?vehicleId=${encodeURIComponent(ownerId)}&kind=${kind}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob,
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Upload failed');
+  return data.url;
+}
+function deletePhoto(url) {
+  return fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {});
+}
+
+/* ---------- video -> spin frames ---------- */
+function seekTo(video, t) {
+  return new Promise(res => {
+    const on = () => { video.removeEventListener('seeked', on); res(); };
+    video.addEventListener('seeked', on);
+    video.currentTime = t;
+  });
+}
+// How sharp a picture is: the spread of its fine edge detail (variance of the Laplacian) on a small
+// grey copy. Motion blur from walking flattens fine detail, so a blurry frame scores low.
+function sharpness(src) {
+  const w0 = src.videoWidth || src.width, h0 = src.videoHeight || src.height, k = 360 / Math.max(w0, h0);
+  const c = document.createElement('canvas'); c.width = Math.max(8, Math.round(w0 * k)); c.height = Math.max(8, Math.round(h0 * k));
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height).data, W = c.width, H = c.height, L = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) L[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  let s = 0, s2 = 0, n = 0;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x, v = 4 * L[i] - L[i - 1] - L[i + 1] - L[i - W] - L[i + W];
+    s += v; s2 += v * v; n++;
+  }
+  const m = s / n; return s2 / n - m * m;
+}
+// Splits the walk-around video into frames for the spin. For each angle it looks at three moments
+// close together and keeps the sharpest (walking makes some frames blurry), and keeps the frame big
+// (2048 px) so small damage is still visible to you and the AI scan.
+async function extractFrames(file, onProgress) {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.src = url; video.muted = true; video.playsInline = true;
+  video.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px';
+  document.body.appendChild(video);
+  await new Promise((ok, bad) => { video.onloadedmetadata = ok; video.onerror = () => bad(new Error('That video could not be read.')); });
+  const duration = video.duration;
+  if (!duration || !isFinite(duration) || duration < 1.5) { video.remove(); URL.revokeObjectURL(url); throw new Error('That video looks too short to make a walk-around from.'); }
+  const N = Math.min(24, Math.max(10, Math.round(duration * 2)));
+  const start = duration * 0.03, end = duration * 0.97, step = (end - start) / Math.max(1, N - 1);
+  const clampT = t => Math.max(0.01, Math.min(duration - 0.05, t));
+  const blobs = [];
+  for (let i = 0; i < N; i++) {
+    const t = start + step * i;
+    let bestT = t, best = -1, at = null;
+    for (const c of [t - step * 0.25, t, t + step * 0.25].map(clampT)) {
+      await seekTo(video, c); at = c;
+      let sc = 0; try { sc = sharpness(video); } catch (e) { sc = 0; }
+      if (sc > best) { best = sc; bestT = c; }
+    }
+    if (at !== bestT) await seekTo(video, bestT);
+    blobs.push(await resizeToJPEG(video, 2048, 0.88));
+    onProgress(i + 1, N);
+  }
+  video.remove(); URL.revokeObjectURL(url);
+  return blobs;
+}
+
+/* ---------- login / nav ---------- */
+function renderLogin() {
+  topNav.innerHTML = '';
+  app.innerHTML = '';
+  app.appendChild(document.getElementById('tpl-login').content.cloneNode(true));
+  if (window.DEALER && DEALER.name) app.querySelector('.login-wrap h1').textContent = DEALER.name + ' \u2014 dealer login';
+  const form = document.getElementById('loginForm');
+  const user = document.getElementById('user'), pw = document.getElementById('pw'), remember = document.getElementById('remember');
+  const btn = document.getElementById('loginBtn'), err = document.getElementById('loginErr');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    err.hidden = true; btn.disabled = true; btn.textContent = 'Checking\u2026';
+    try { await api('/api/auth', { method: 'POST', body: JSON.stringify({ username: user.value.trim(), password: pw.value, remember: remember.checked }) }); renderList(); }
+    catch (e2) { err.textContent = e2.message; err.hidden = false; }
+    finally { btn.disabled = false; btn.textContent = 'Log in'; }
+  });
+  user.focus();
+}
+
+async function renderList() {
+  topNav.innerHTML = '<a href="/admin.html">Vehicles</a><a href="#" id="logoutLink">Log out</a>';
+  document.getElementById('logoutLink').addEventListener('click', async e => {
+    e.preventDefault();
+    await api('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }).catch(() => {});
+    renderLogin();
+  });
+  app.innerHTML = '';
+  app.appendChild(document.getElementById('tpl-list').content.cloneNode(true));
+  document.getElementById('newBtn').addEventListener('click', () => openEditor(null));
+  await loadList();
+}
+
+async function loadList() {
+  const listEl = document.getElementById('alist');
+  listEl.innerHTML = '<div class="loader"><span class="spin"></span> Loading appraisals\u2026</div>';
+  let items;
+  try { items = await api('/api/appraisals'); } catch (e) { listEl.innerHTML = '<div class="empty-state">Could not load appraisals.</div>'; return; }
+  if (!items.length) { listEl.innerHTML = '<div class="empty-state">No appraisals yet. Start one above.</div>'; return; }
+  const box = document.createElement('div'); box.className = 'vlist';
+  box.innerHTML = items.map(a => `
+    <div class="vrow" data-id="${esc(a.id)}">
+      <div class="thumb">${a.cover ? `<img src="${esc(a.cover)}" alt="">` : 'No video'}</div>
+      <div class="meta">
+        <b>${esc(a.customerName || 'No customer name')}</b>
+        <span>${esc(a.vehicleTitle)}${a.pinCount ? ` &middot; ${a.pinCount} damage ${a.pinCount === 1 ? 'item' : 'items'}` : ''}</span>
+      </div>
+      <span class="tag">${a.scanStatus === 'scanned' ? 'AI scanned' : 'Manual review'}</span>
+      <div class="actions">
+        <button class="btn" data-act="edit">Open</button>
+        <button class="btn danger" data-act="del">Delete</button>
+      </div>
+    </div>`).join('');
+  box.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const id = btn.closest('.vrow').dataset.id;
+    if (btn.dataset.act === 'edit') openEditor(id);
+    else if (btn.dataset.act === 'del') {
+      if (!confirm('Delete this appraisal and its video frames? This cannot be undone.')) return;
+      try { await api('/api/appraisal?id=' + encodeURIComponent(id), { method: 'DELETE' }); toast('Appraisal deleted.'); loadList(); }
+      catch (e2) { toast(e2.message); }
+    }
+  });
+  listEl.innerHTML = ''; listEl.appendChild(box);
+}
+
+function newTempId() { return 'draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+/* ---------- editor ---------- */
+async function openEditor(id) {
+  let a = { id: newTempId(), customer: { name: '', phone: '', email: '' }, vehicle: { year: '', make: '', model: '', trim: '', vin: '', odometer: '' }, notes: '', frames: [], pins: [] };
+  let isNew = true;
+  if (id) {
+    isNew = false;
+    try { a = await api('/api/appraisal?id=' + encodeURIComponent(id)); }
+    catch (e) { toast('Could not load that appraisal.'); return; }
+  }
+
+  topNav.innerHTML = '<a href="/admin.html">Vehicles</a><a href="#" id="backLink">All appraisals</a>';
+  document.getElementById('backLink').addEventListener('click', e => { e.preventDefault(); renderList(); });
+
+  app.innerHTML = `
+    <h1 style="font-size:22px">${isNew ? 'New appraisal' : 'Edit appraisal'}</h1>
+
+    <h3 class="sec">Customer</h3>
+    <div class="grid3">
+      <label class="field"><span>Name</span><input class="input" id="fName"></label>
+      <label class="field"><span>Phone</span><input class="input" id="fPhone"></label>
+      <label class="field"><span>Email</span><input class="input" id="fEmail"></label>
+    </div>
+
+    <h3 class="sec">Vehicle</h3>
+    <div class="grid3">
+      <label class="field"><span>Year</span><input class="input" id="fYear" inputmode="numeric"></label>
+      <label class="field"><span>Make</span><input class="input" id="fMake"></label>
+      <label class="field"><span>Model</span><input class="input" id="fModel"></label>
+    </div>
+    <div class="grid3">
+      <label class="field"><span>Trim</span><input class="input" id="fTrim"></label>
+      <label class="field"><span>Odometer</span><input class="input" id="fOdo"></label>
+      <label class="field"><span>VIN</span>
+        <div class="vin-row">
+          <input class="input" id="fVin" style="text-transform:uppercase" maxlength="17">
+          <button type="button" class="btn" id="scanVinBtn" title="Scan VIN from a photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M4 16v2a2 2 0 0 0 2 2h2M20 8V6a2 2 0 0 0-2-2h-2M20 16v2a2 2 0 0 1-2 2h-2M7 12h10"/></svg>
+          </button>
+          <input type="file" id="vinPhotoInput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+        </div>
+      </label>
+    </div>
+    <div id="vinScanPanel" class="vin-scan" hidden></div>
+    <label class="field"><span>Notes</span><textarea class="input" id="fNotes" rows="2"></textarea></label>
+
+    <h3 class="sec">Walk-around video</h3>
+    <p class="hint">One video, walking a full circle around the vehicle at a steady pace and distance. It's automatically split into a 360&deg; spin.</p>
+    <div id="videoArea"></div>
+
+    <h3 class="sec">Close-up photos <span class="cu-count" id="cuCount"></span></h3>
+    <p class="hint">These catch what the video can't: chips, light scratches and curb rash. Stand about 1&ndash;2 m away so one panel or corner fills the photo, in shade or on a cloudy day if you can (direct sun hides scratches). Tap a box to take each photo; skip any you can't get.</p>
+    <div class="cu-slots" id="cuSlots"></div>
+
+    <div id="pinListBox"></div>
+
+    <div class="aiscan" id="aiScan">
+      <div class="row"><b>AI damage scan</b><span class="tag" id="aiTag">Checking&hellip;</span></div>
+      <div id="aiBody"><p>Checking whether the AI scanner is set up&hellip;</p></div>
+    </div>
+
+    <div class="sheet-foot">
+      <button class="btn" id="cancelBtn">Back</button>
+      <button class="btn primary" id="saveBtn">Save appraisal</button>
+    </div>
+  `;
+
+  const f = sel => document.querySelector(sel);
+  f('#fName').value = a.customer.name; f('#fPhone').value = a.customer.phone; f('#fEmail').value = a.customer.email;
+  f('#fYear').value = a.vehicle.year; f('#fMake').value = a.vehicle.make; f('#fModel').value = a.vehicle.model;
+  f('#fTrim').value = a.vehicle.trim; f('#fOdo').value = a.vehicle.odometer; f('#fVin').value = a.vehicle.vin;
+  f('#fNotes').value = a.notes;
+
+  let frames = [...a.frames];
+  let closeups = Object.assign({}, a.closeups || {});           // { slotKey: photo url }
+  let pins = a.pins.map(p => ({ ...p }));
+  let scanStatus = a.scanStatus === 'scanned' ? 'scanned' : 'not_configured', scannedAt = a.scannedAt || null;
+  let jumpToFrame = () => {};          // set once the frame viewer is on screen
+  let redrawFramePins = () => {};
+  let zoomToPin = () => {};            // set once the frame viewer is on screen
+  const imgs = new Map();
+
+  function loadImg(url) {
+    if (imgs.has(url)) return imgs.get(url);
+    const im = new Image(); im.crossOrigin = 'anonymous'; im.src = url;
+    imgs.set(url, im); return im;
+  }
+  const slotLabel = k => (CLOSEUPS.find(c => c[0] === k) || [k, 'Close-up'])[1];
+  const where = p => p.closeup ? 'Close-up: ' + slotLabel(p.closeup) : (p.seenIn && p.seenIn.length > 1 ? `frames ${p.seenIn.map(x => x + 1).join(', ')}` : `frame ${p.frame + 1}`);
+  const LEVELS = { likely: 'Likely', possible: 'Possible', doubtful: 'Doubtful' };
+
+  // Everything that shows pins redraws after any change.
+  function pinsChanged() { redrawFramePins(); renderPinList(); renderCloseups(); if (lb) lb.redraw(); renderAiBox(); }
+
+  /* ---- one pin list for the video and the close-ups ---- */
+  function renderPinList() {
+    const listBox = f('#pinListBox');
+    if (!pins.length) { listBox.innerHTML = ''; return; }
+    listBox.innerHTML = `<h3 class="sec">Tagged damage</h3><div class="pinlist">${pins.map((p, i) => `
+      <div class="pinrow" data-i="${i}">
+        <span class="num${p.ai ? ' ai' : ''}">${i + 1}</span>
+        <div class="d"><b>${esc(TYPES[p.type] || 'Other')}${p.note ? ' &mdash; ' + esc(p.note) : ''}${p.ai ? (p.checked ? '<span class="aitag ok">AI &middot; checked</span>' : `<span class="aitag lv-${p.level || 'possible'}">${LEVELS[p.level] || 'AI'} &middot; check it</span>`) : ''}</b><span>${esc(SEV[p.sev] || '')}, ${esc(where(p))}</span></div>
+        <button type="button" class="btn" data-jump="${i}">View</button>
+      </div>`).join('')}</div>`;
+    listBox.querySelectorAll('[data-jump]').forEach(btn => btn.addEventListener('click', () => {
+      const i = +btn.dataset.jump, p = pins[i];
+      flashPin(p);
+      if (p.closeup) openLightbox(p.closeup, i);
+      else { jumpToFrame(p.frame); zoomToPin(p); const st = f('#stage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    }));
+  }
+
+  function aiLine(p) {
+    const by = p.seenBy || [], two = aiProviders.length > 1;
+    const who = by.length > 1 ? 'Gemini and Groq both found this' : by.length && two ? `Only ${NAMES[by[0]] || 'one AI'} found this` : 'The AI found this';
+    const inF = p.closeup ? ' on the close-up' : p.seenIn && p.seenIn.length > 1 ? `, in ${p.seenIn.length} frames side by side` : p.closeup === undefined && p.frame != null ? ', in one frame only' : '';
+    const hint = p.level === 'doubtful' ? ' Could easily be a reflection or dirt, so look closely.' : p.level === 'likely' ? ' Very likely real.' : '';
+    return `${who}${inF}.${hint}`;
+  }
+  function openPinEditor(i) {
+    const p = pins[i];
+    const overlay = document.createElement('div'); overlay.className = 'pinedit';
+    overlay.innerHTML = `
+      <div class="card">
+        <h2 style="font-size:18px;margin-bottom:10px">Damage ${i + 1}</h2>
+        ${p.ai ? `<p class="hint" style="margin:-4px 0 10px;color:#f5a524">${aiLine(p)} Tap <b>Done</b> if it's real, or <b>Delete pin</b> if it isn't.</p>` : ''}
+        <p class="hint" style="margin:0 0 4px">Type</p>
+        <div class="chips" id="pType">${Object.entries(TYPES).map(([k, l]) => `<label><input type="radio" name="ptype" value="${k}" ${p.type === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+        <p class="hint" style="margin:0 0 4px">Severity</p>
+        <div class="chips" id="pSev">${Object.entries(SEV).map(([k, l]) => `<label><input type="radio" name="psev" value="${k}" ${p.sev === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+        <label class="field"><span>Circle size</span><input type="range" id="pSize" min="3" max="45" step="1" value="${Math.round(circleFrac(p) * 100)}" style="width:100%;accent-color:var(--accent)"></label>
+        <label class="field"><span>Note</span><textarea class="input" id="pNote" rows="2">${esc(p.note)}</textarea></label>
+        <div class="sheet-foot" style="margin-top:8px">
+          <button type="button" class="btn danger" id="pDel">Delete pin</button>
+          <button type="button" class="btn primary" id="pDone">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => { overlay.remove(); pinsChanged(); };
+    overlay.querySelector('#pType').addEventListener('change', e => p.type = e.target.value);
+    overlay.querySelector('#pSev').addEventListener('change', e => p.sev = e.target.value);
+    overlay.querySelector('#pNote').addEventListener('input', e => p.note = e.target.value);
+    overlay.querySelector('#pSize').addEventListener('input', e => { p.d = +e.target.value / 100; redrawFramePins(); if (lb) lb.redraw(); });
+    overlay.querySelector('#pDel').addEventListener('click', () => { pins.splice(i, 1); close(); });
+    overlay.querySelector('#pDone').addEventListener('click', () => { if (p.ai) p.checked = true; close(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  }
+  // Circle size as a fraction of the photo width. AI finds come with the damage's own box
+  // (w, h); pins you tag by hand start at a medium circle and can be resized in the editor.
+  const DEF_D = 0.08;
+  function circleFrac(p, aspect) {
+    if (p.d) return p.d;
+    if (p.w || p.h) return Math.max(p.w || 0, (p.h || 0) / (aspect || 1.6)) * 1.35 + 0.02;
+    return DEF_D;
+  }
+  let flashId = null;
+  function pinButton(p, i, rect) {
+    const lv = p.ai ? ' ai lv-' + (p.level || 'possible') + (p.checked ? ' checked' : '') : '';
+    const m = document.createElement('div'); m.className = 'mark' + lv + (p.id === flashId ? ' flash' : '');
+    const d = Math.max(30, circleFrac(p, rect.w / rect.h) * rect.w);
+    m.style.left = (rect.x + p.x * rect.w) + 'px'; m.style.top = (rect.y + p.y * rect.h) + 'px';
+    m.style.width = m.style.height = d + 'px';
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'pin' + lv; b.textContent = i + 1; b.setAttribute('aria-label', 'Damage ' + (i + 1));
+    b.addEventListener('click', ev => { ev.stopPropagation(); openPinEditor(i); });
+    m.innerHTML = '<span class="ring"></span>'; m.appendChild(b);
+    return m;
+  }
+
+  /* ---- zoom: pinch, mouse wheel, drag to move around, or the + / - buttons ----
+     base() gives the photo's fitted size (w0, h0) and the view size (vw, vh); apply() redraws.
+     Pan (px, py) is measured from the view centre, so the photo stays centred at 1x. */
+  function attachZoom(stage, base, apply) {
+    const Z = { z: 1, px: 0, py: 0 }, MAX = 6;
+    stage.insertAdjacentHTML('beforeend', `<div class="zbar"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" class="zlv" data-z="fit" aria-label="Fit whole photo" disabled>1&times;</button></div>`);
+    const lvBtn = stage.querySelector('.zlv');
+    function clamp() {
+      const b = base(); Z.z = Math.min(MAX, Math.max(1, Z.z));
+      if (Z.z < 1.01) { Z.z = 1; Z.px = Z.py = 0; }
+      if (!b || !b.w0) return;
+      const mx = Math.max(0, (b.w0 * Z.z - b.vw) / 2), my = Math.max(0, (b.h0 * Z.z - b.vh) / 2);
+      Z.px = Math.min(mx, Math.max(-mx, Z.px)); Z.py = Math.min(my, Math.max(-my, Z.py));
+    }
+    function update() {
+      clamp();
+      stage.style.touchAction = Z.z > 1 ? 'none' : '';
+      lvBtn.innerHTML = (Z.z > 1 ? (Math.round(Z.z * 10) / 10) : 1) + '&times;'; lvBtn.disabled = Z.z === 1;
+      apply();
+    }
+    const fromCentre = (cx, cy) => { const r = stage.getBoundingClientRect(); return [cx - r.left - r.width / 2, cy - r.top - r.height / 2]; };
+    function zoomAt(nz, fx, fy) {
+      nz = Math.min(MAX, Math.max(1, nz)); const k = nz / Z.z;
+      Z.px = fx - (fx - Z.px) * k; Z.py = fy - (fy - Z.py) * k; Z.z = nz; update();
+    }
+    stage.querySelector('.zbar').addEventListener('click', e => {
+      e.stopPropagation(); const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoomAt(Z.z * 1.6, 0, 0);
+      else if (b.dataset.z === 'out') zoomAt(Z.z / 1.6, 0, 0);
+      else { Z.z = 1; update(); }
+    });
+    stage.addEventListener('wheel', e => { e.preventDefault(); const [fx, fy] = fromCentre(e.clientX, e.clientY); zoomAt(Z.z * Math.exp(-e.deltaY * 0.0015), fx, fy); }, { passive: false });
+    stage.addEventListener('gesturestart', e => e.preventDefault());       // stop iPhone zooming the whole page
+    const pts = new Map(); let pinch = null, drag = null, moved = false;
+    const skip = t => t.closest('.zbar,.bar,.pin');
+    stage.addEventListener('pointerdown', e => {
+      if (skip(e.target)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) { moved = false; drag = { x: e.clientX, y: e.clientY, px: Z.px, py: Z.py }; }
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: Z.z }; moved = true; }
+      try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    stage.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && pts.size >= 2) {
+        const [a, b] = [...pts.values()];
+        const [fx, fy] = fromCentre((a.x + b.x) / 2, (a.y + b.y) / 2);
+        zoomAt(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d, fx, fy);
+      } else if (drag && Z.z > 1) {
+        const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (!moved && Math.hypot(dx, dy) > 6) moved = true;
+        if (moved) { Z.px = drag.px + dx; Z.py = drag.py + dy; update(); }
+      }
+    });
+    const up = e => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinch = null;
+      if (pts.size === 1) { const [a] = [...pts.values()]; drag = { x: a.x, y: a.y, px: Z.px, py: Z.py }; }
+      if (!pts.size) drag = null;
+    };
+    stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+    // A drag or pinch is not a tap: don't drop a damage pin at the end of it.
+    stage.addEventListener('click', e => { if (moved) { moved = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    return {
+      Z, clamp, update,
+      reset() { Z.z = 1; update(); },
+      // Centre the photo on (fx, fy) (fractions of the photo) at zoom z.
+      zoomTo(fx, fy, z) { const b = base(); if (!b || !b.w0) return; Z.z = Math.min(MAX, Math.max(1, z)); Z.px = -(fx - 0.5) * b.w0 * Z.z; Z.py = -(fy - 0.5) * b.h0 * Z.z; update(); },
+    };
+  }
+  // How far to zoom so a pin's circle fills about a third of the view.
+  const zoomFor = (p, aspect) => Math.min(5, Math.max(2, 0.34 / circleFrac(p, aspect)));
+  function flashPin(p) { flashId = p.id; setTimeout(() => { if (flashId === p.id) flashId = null; }, 3000); }
+
+  /* ---- walk-around video viewer ---- */
+  let curFrame = 0, playing = null, tagging = false;
+  function renderVideoArea() {
+    const box = f('#videoArea');
+    jumpToFrame = () => {}; redrawFramePins = () => {};
+    if (!frames.length) {
+      box.innerHTML = `
+        <label class="drop" id="vidDrop"><strong>Add walk-around video</strong><span>Tap to record or choose a video file</span><input type="file" id="vidInput" accept="video/*" capture="environment"></label>
+        <div class="progress" id="vidProgress"></div>`;
+      box.querySelector('#vidInput').addEventListener('change', onVideoSelected);
+      return;
+    }
+    curFrame = Math.min(curFrame, frames.length - 1);
+    box.innerHTML = `
+      <div class="stage" id="stage" data-tagging="0">
+        <canvas id="stageCv"></canvas>
+        <div class="pins" id="pinsLayer"></div>
+        <div class="bar">
+          <button type="button" class="ibtn" id="pPrev">&#8592;</button>
+          <button type="button" class="ibtn" id="pPlay">&#9654;</button>
+          <span class="fcount" id="fcount">1 / ${frames.length}</span>
+          <input type="range" id="fscrub" min="1" max="${frames.length}" value="1">
+          <button type="button" class="ibtn" id="pNext">&#8594;</button>
+        </div>
+      </div>
+      <div class="tagbar">
+        <button type="button" class="btn" id="tagBtn">Tag damage on this frame</button>
+        <span class="hint2" id="tagHint">Pinch, scroll or use + to zoom in.</span>
+      </div>
+      <div class="progress" id="reuploadProgress"></div>
+      <button type="button" class="btn" id="replaceVidBtn" style="margin-top:6px">Replace video</button>
+      <input type="file" id="vidInputReplace" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+    `;
+    const cv = box.querySelector('#stageCv'), ctx = cv.getContext('2d');
+    const stage = box.querySelector('#stage');
+    let rect = { x: 0, y: 0, w: 0, h: 0 };
+    const zoom = attachZoom(stage, () => {
+      const r = stage.getBoundingClientRect(), im = loadImg(frames[curFrame]);
+      if (!im.naturalWidth || !r.width) return null;
+      const s = Math.min(r.width / im.naturalWidth, r.height / im.naturalHeight);
+      return { w0: im.naturalWidth * s, h0: im.naturalHeight * s, vw: r.width, vh: r.height };
+    }, () => draw());
+
+    function draw() {
+      const r = stage.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#15191d'; ctx.fillRect(0, 0, r.width, r.height);
+      const im = loadImg(frames[curFrame]);
+      const done = () => {
+        zoom.clamp(); const Z = zoom.Z;
+        const s = Math.min(r.width / im.naturalWidth, r.height / im.naturalHeight) * Z.z;
+        const w = im.naturalWidth * s, h = im.naturalHeight * s;
+        rect = { x: (r.width - w) / 2 + Z.px, y: (r.height - h) / 2 + Z.py, w, h };
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(im, rect.x, rect.y, w, h);
+        renderPins();
+      };
+      if (im.complete && im.naturalWidth) done(); else im.onload = done;
+      box.querySelector('#fcount').textContent = `${curFrame + 1} / ${frames.length}`;
+      box.querySelector('#fscrub').value = curFrame + 1;
+    }
+    function renderPins() {
+      const layer = box.querySelector('#pinsLayer'); if (!layer) return;
+      layer.innerHTML = '';
+      pins.forEach((p, i) => { if (!p.closeup && p.frame === curFrame) layer.appendChild(pinButton(p, i, rect)); });
+    }
+    const go = i => { curFrame = ((i % frames.length) + frames.length) % frames.length; draw(); };
+    jumpToFrame = i => { stop(); go(i); };
+    redrawFramePins = renderPins;
+    zoomToPin = p => { const im = loadImg(frames[p.frame]); const z = () => zoom.zoomTo(p.x, p.y, zoomFor(p, im.naturalWidth / im.naturalHeight || 1.6)); if (im.naturalWidth) z(); else im.addEventListener('load', z, { once: true }); };
+    box.querySelector('#pPrev').addEventListener('click', () => { stop(); go(curFrame - 1); });
+    box.querySelector('#pNext').addEventListener('click', () => { stop(); go(curFrame + 1); });
+    box.querySelector('#fscrub').addEventListener('input', e => { stop(); go(+e.target.value - 1); });
+    function stop() { if (playing) { clearInterval(playing); playing = null; box.querySelector('#pPlay').innerHTML = '&#9654;'; } }
+    box.querySelector('#pPlay').addEventListener('click', () => {
+      if (playing) return stop();
+      box.querySelector('#pPlay').innerHTML = '&#10074;&#10074;';
+      playing = setInterval(() => go(curFrame + 1), 110);
+    });
+    new ResizeObserver(draw).observe(stage);
+
+    const tagBtn = box.querySelector('#tagBtn');
+    tagging = false;
+    tagBtn.addEventListener('click', () => {
+      tagging = !tagging; stage.dataset.tagging = tagging ? '1' : '0';
+      tagBtn.setAttribute('aria-pressed', tagging ? 'true' : 'false');
+      tagBtn.textContent = tagging ? 'Tagging — tap to stop' : 'Tag damage on this frame';
+      box.querySelector('#tagHint').textContent = tagging ? 'Tap the centre of the damage. Zoom in first (+ or pinch) to place it exactly.' : 'Pinch, scroll or use + to zoom in.';
+    });
+    stage.addEventListener('click', e => {
+      if (!tagging || e.target.closest('.pin') || e.target.closest('.bar') || e.target.closest('.zbar')) return;
+      const b = stage.getBoundingClientRect();
+      const x = (e.clientX - b.left - rect.x) / rect.w, y = (e.clientY - b.top - rect.y) / rect.h;
+      if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return;
+      pins.push({ id: Date.now(), frame: curFrame, x, y, type: 'scratch', sev: 'minor', note: '' });
+      pinsChanged();
+      openPinEditor(pins.length - 1);
+    });
+    draw();
+
+    box.querySelector('#replaceVidBtn').addEventListener('click', () => box.querySelector('#vidInputReplace').click());
+    box.querySelector('#vidInputReplace').addEventListener('change', onVideoSelected);
+  }
+
+  async function onVideoSelected(e) {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    const progEl = document.getElementById('vidProgress') || document.getElementById('reuploadProgress');
+    try {
+      progEl.textContent = 'Reading video…';
+      const blobs = await extractFrames(file, (n, total) => { progEl.textContent = `Picking the sharpest frame for each angle: ${n} of ${total}…`; });
+      const oldFrames = frames;
+      const newFrames = [];
+      for (let i = 0; i < blobs.length; i++) {
+        progEl.textContent = `Uploading frame ${i + 1} of ${blobs.length}…`;
+        newFrames.push(await uploadFrame(a.id, 'appraisal', blobs[i]));
+      }
+      oldFrames.forEach(u => deletePhoto(u));
+      frames = newFrames; curFrame = 0;
+      pins = pins.filter(p => p.closeup);                       // frame pins belonged to the old video
+      if (pins.some(p => p.ai) || scanStatus === 'scanned') { scanStatus = 'not_configured'; scannedAt = null; }
+      progEl.textContent = '';
+      renderVideoArea(); pinsChanged();
+    } catch (err) {
+      progEl.textContent = '';
+      toast(err.message || 'That video could not be processed.');
+    }
+  }
+
+  /* ---- close-up photos ---- */
+  function renderCloseups() {
+    const box = f('#cuSlots'); if (!box) return;
+    const n = Object.keys(closeups).length;
+    f('#cuCount').textContent = n ? `${n} of ${CLOSEUPS.length} taken` : '';
+    box.innerHTML = CLOSEUPS.map(([k, label, hint]) => {
+      const url = closeups[k], cnt = pins.filter(p => p.closeup === k).length;
+      return url
+        ? `<div class="slot filled" data-k="${k}" role="button" tabindex="0" title="${esc(label)}"><img src="${esc(url)}" alt=""><span class="cap">${esc(label)}</span>${cnt ? `<span class="cnt">${cnt}</span>` : ''}</div>`
+        : `<label class="slot" data-k="${k}"><strong>${esc(label)}</strong><span>${esc(hint)}</span><input type="file" accept="image/*" capture="environment" data-k="${k}"></label>`;
+    }).join('');
+    box.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => { const fl = e.target.files[0]; e.target.value = ''; if (fl) addCloseup(inp.dataset.k, fl); }));
+    box.querySelectorAll('.slot.filled').forEach(el => el.addEventListener('click', () => openLightbox(el.dataset.k)));
+  }
+  async function addCloseup(k, file) {
+    const slot = f(`#cuSlots .slot[data-k="${k}"]`); if (slot) slot.classList.add('busy');
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => createImageBitmap(file));
+      const blob = await resizeToJPEG(bmp, 2048, 0.9);
+      if (bmp.close) bmp.close();
+      const url = await uploadFrame(a.id, 'appraisal', blob);
+      if (closeups[k]) deletePhoto(closeups[k]);
+      pins = pins.filter(p => p.closeup !== k);                  // old pins were on the old photo
+      closeups[k] = url;
+      pinsChanged();
+      toast(slotLabel(k) + ' saved.');
+    } catch (e) { toast('That photo could not be added: ' + e.message); renderCloseups(); }
+  }
+
+  // Full-size view of one close-up, with its pins; tag damage by tapping, or retake.
+  let lb = null;
+  function openLightbox(k, pinIndex) {
+    const ov = document.createElement('div'); ov.className = 'lightbox';
+    ov.innerHTML = `
+      <div class="lb-top"><b>${esc(slotLabel(k))}</b><button type="button" class="btn" id="lbClose">Close</button></div>
+      <div class="lb-stage" data-tagging="0"><img alt=""><div class="pins"></div></div>
+      <div class="lb-bar">
+        <button type="button" class="btn" id="lbTag">Tag damage</button>
+        <label class="btn" style="position:relative">Retake<input type="file" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0"></label>
+        <button type="button" class="btn danger" id="lbDel">Remove photo</button>
+      </div>`;
+    document.body.appendChild(ov);
+    const st = ov.querySelector('.lb-stage'), img = st.querySelector('img'), layer = st.querySelector('.pins');
+    let tag = false;
+    const zoom = attachZoom(st, () => {
+      const r = st.getBoundingClientRect();
+      return img.offsetWidth ? { w0: img.offsetWidth, h0: img.offsetHeight, vw: r.width, vh: r.height } : null;
+    }, () => { img.style.transform = `translate(${zoom.Z.px}px, ${zoom.Z.py}px) scale(${zoom.Z.z})`; redraw(); });
+    const rectOf = () => { const r = st.getBoundingClientRect(), ir = img.getBoundingClientRect(); return { x: ir.left - r.left, y: ir.top - r.top, w: ir.width, h: ir.height }; };
+    const redraw = () => {
+      if (!closeups[k]) return close();
+      if (img.getAttribute('src') !== closeups[k]) { img.src = closeups[k]; zoom.reset(); }
+      layer.innerHTML = ''; const r = rectOf();
+      if (r.w) pins.forEach((p, i) => { if (p.closeup === k) layer.appendChild(pinButton(p, i, r)); });
+    };
+    const onResize = () => zoom.update();
+    const close = () => { ov.remove(); lb = null; window.removeEventListener('resize', onResize); };
+    lb = { redraw };
+    let zoomedIn = pinIndex == null;
+    img.onload = () => {
+      redraw();
+      const p = pins[pinIndex];
+      if (!zoomedIn && p && p.closeup === k) { zoomedIn = true; zoom.zoomTo(p.x, p.y, zoomFor(p, img.naturalWidth / img.naturalHeight)); }
+    };
+    img.draggable = false; img.src = closeups[k];
+    window.addEventListener('resize', onResize);
+    ov.querySelector('#lbClose').addEventListener('click', close);
+    ov.querySelector('#lbTag').addEventListener('click', e => {
+      tag = !tag; st.dataset.tagging = tag ? '1' : '0';
+      e.target.textContent = tag ? 'Tagging — tap to stop' : 'Tag damage';
+      if (tag) toast('Tap the centre of the damage. Pinch or + to zoom in first.');
+    });
+    st.addEventListener('click', e => {
+      if (!tag || e.target.closest('.pin')) return;
+      const ir = img.getBoundingClientRect();
+      const x = (e.clientX - ir.left) / ir.width, y = (e.clientY - ir.top) / ir.height;
+      if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return;
+      pins.push({ id: Date.now(), closeup: k, x, y, type: 'scratch', sev: 'minor', note: '' });
+      pinsChanged(); openPinEditor(pins.length - 1);
+    });
+    ov.querySelector('input[type=file]').addEventListener('change', async e => { const fl = e.target.files[0]; e.target.value = ''; if (fl) { await addCloseup(k, fl); redraw(); } });
+    ov.querySelector('#lbDel').addEventListener('click', () => {
+      const n = pins.filter(p => p.closeup === k).length;
+      if (!confirm(`Remove the ${slotLabel(k)} photo${n ? ` and its ${n} damage pin${n === 1 ? '' : 's'}` : ''}?`)) return;
+      deletePhoto(closeups[k]); delete closeups[k];
+      pins = pins.filter(p => p.closeup !== k);
+      close(); pinsChanged();
+    });
+
+  }
+
+  /* ---- AI damage scan ----
+     Every walk-around frame and every close-up goes to the AI (both Gemini and Groq when both keys
+     are set), one photo at a time. Then the frame finds are cross-checked: the same damage seen in
+     frames side by side becomes one pin, and each pin is rated
+       Likely   - both AIs saw it, or one AI saw it in several frames and the other AI saw it too
+       Possible - one AI saw it in 2+ frames side by side, or on a close-up
+       Doubtful - one AI, one frame only
+     Pins are suggestions: the appraiser checks each one (Done) or deletes it. Nothing is saved until
+     "Save appraisal". */
+  let aiReady = null, aiProviders = [], scanning = null;
+  const NAMES = { gemini: 'Gemini', groq: 'Groq' };
+  async function photoB64(url) {
+    const im = await new Promise((ok, bad) => { const x = new Image(); x.crossOrigin = 'anonymous'; x.onload = () => ok(x); x.onerror = () => bad(new Error('A photo could not be loaded.')); x.src = url; });
+    const k = Math.min(1, 2048 / Math.max(im.naturalWidth, im.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+  }
+  const SEVR = { minor: 0, moderate: 1, major: 2 };
+  const groupOf = t => (t === 'chip' || t === 'scratch') ? 'paint' : t;   // the AIs mix up chips and scratches
+  // Finds in frames side by side that look like the same damage become one pin.
+  function crossCheck(list, n) {
+    const order = list.map((_, i) => i).sort((x, y) => ((list[y].seenBy.length - list[x].seenBy.length) || (list[y].conf - list[x].conf)));
+    const used = new Array(list.length).fill(false), out = [];
+    const near = (m, g) => {
+      const df = Math.min(Math.abs(m.frame - g.frame), n - Math.abs(m.frame - g.frame));
+      return df >= 1 && df <= 2 && groupOf(m.type) === groupOf(g.type) && Math.abs(m.y - g.y) < 0.12 && Math.abs(m.x - g.x) < 0.35;
+    };
+    for (const i of order) {
+      if (used[i]) continue;
+      used[i] = true; const c = [list[i]];
+      for (let grew = true; grew;) {
+        grew = false;
+        list.forEach((g, j) => { if (!used[j] && c.some(m => near(m, g))) { used[j] = true; c.push(g); grew = true; } });
+      }
+      const best = c.slice().sort((x, y) => (y.seenBy.length - x.seenBy.length) || (y.conf - x.conf))[0];
+      const seenIn = [...new Set(c.map(m => m.frame))].sort((x, y) => x - y);
+      const seenBy = [...new Set(c.flatMap(m => m.seenBy))];
+      const agreeOnOne = c.some(m => m.seenBy.length > 1);
+      const score = (agreeOnOne ? 2 : 0) + (seenIn.length > 1 ? 1 : 0) + (!agreeOnOne && seenBy.length > 1 ? 1 : 0);
+      out.push(Object.assign({}, best, {
+        sev: c.reduce((s, m) => SEVR[m.sev] > SEVR[s] ? m.sev : s, best.sev),
+        conf: Math.max(...c.map(m => m.conf)), seenIn, seenBy,
+        level: score >= 2 ? 'likely' : score === 1 ? 'possible' : 'doubtful',
+      }));
+    }
+    return out;
+  }
+  const photosToScan = () => frames.map((u, i) => ({ url: u, frame: i, label: `frame ${i + 1}` }))
+    .concat(CLOSEUPS.filter(c => closeups[c[0]]).map(c => ({ url: closeups[c[0]], closeup: c[0], label: 'close-up: ' + c[1] })));
+
+  const aiEl = f('#aiScan');
+  function renderAiBox(prog) {
+    if (!aiEl.isConnected || scanning && !prog) return;
+    const tag = aiEl.querySelector('#aiTag'), body = aiEl.querySelector('#aiBody');
+    tag.className = 'tag';
+    if (aiReady === null) { tag.textContent = 'Checking…'; return; }
+    if (!aiReady) {
+      tag.textContent = 'Not set up';
+      body.innerHTML = `<p>The scanner needs a free Google Gemini key (and ideally a free Groq key for a second opinion) added to the app. Until then, tag anything you spot by hand.</p>
+        <ol><li>Get a free key at <b>aistudio.google.com</b> (<b>Get API key</b>), and one at <b>console.groq.com</b> (<b>API Keys</b>).</li>
+        <li>In Cloudflare: <b>Workers &amp; Pages &rarr; autospin360 &rarr; Settings &rarr; Variables and Secrets &rarr; Add</b>, type <b>Secret</b>, names <code>GEMINI_API_KEY</code> and <code>GROQ_API_KEY</code>, then <b>Deploy</b>.</li>
+        <li>Reload this page.</li></ol>`;
+      return;
+    }
+    if (scanning) {
+      tag.textContent = 'Scanning';
+      body.innerHTML = `<p id="aiMsg">${esc(prog)}</p><div class="abar"><b id="aiBar"></b></div>
+        <div class="acts"><button type="button" class="btn" id="aiStop">Stop</button></div>`;
+      body.querySelector('#aiStop').addEventListener('click', () => { if (scanning) scanning.stop = true; });
+      return;
+    }
+    const todo = photosToScan(), nCu = Object.keys(closeups).length;
+    if (!todo.length) {
+      tag.textContent = 'Ready';
+      body.innerHTML = '<p>Add the walk-around video and close-ups first, then the AI can look them over for scratches, dents, chips, wheel and glass damage.</p>';
+      return;
+    }
+    const two = aiProviders.length > 1;
+    if (scanStatus === 'scanned') {
+      const aiPins = pins.filter(p => p.ai), un = aiPins.filter(p => !p.checked);
+      const cnt = l => un.filter(p => (p.level || 'possible') === l).length;
+      tag.textContent = 'Scanned'; tag.classList.add('ok');
+      body.innerHTML = `<p>${aiPins.length
+        ? `The AI marked <b>${aiPins.length}</b> spot${aiPins.length === 1 ? '' : 's'}${un.length ? ` &mdash; <b>${un.length}</b> still to check: ${['likely', 'possible', 'doubtful'].filter(l => cnt(l)).map(l => `<span class="aitag lv-${l}" style="margin:0 2px">${cnt(l)} ${LEVELS[l].toLowerCase()}</span>`).join(' ')}` : ', all checked'}.
+           Open each pin: <b>Done</b> if it's real, <b>Delete pin</b> if it isn't. The same damage can also show on a close-up and in the video; delete the extra.`
+        : 'The AI didn’t find any damage. Still give the vehicle a look yourself: no scanner catches everything.'}</p>
+        ${nCu < CLOSEUPS.length ? `<p style="margin-top:6px">${nCu ? `Only ${nCu} of ${CLOSEUPS.length} close-ups were taken.` : 'No close-ups were taken.'} Close-ups catch far more small chips and scratches than the video.</p>` : ''}
+        <div class="acts"><button type="button" class="btn" id="aiGo">Scan again</button></div>`;
+    } else {
+      const mins = Math.max(1, Math.round(todo.length * (two ? 9 : 7) / 60));
+      tag.textContent = 'Ready';
+      body.innerHTML = `<p>Checks all ${frames.length ? `${frames.length} video frames` : ''}${frames.length && nCu ? ' and ' : ''}${nCu ? `${nCu} close-up${nCu === 1 ? '' : 's'}` : ''} for scratches, dents, chips, wheel and glass damage, and pins what it finds for you to check. ${two ? 'Gemini and Groq each look at every photo; damage seen by both, or in several frames side by side, is marked <b>Likely</b>.' : `Using ${NAMES[aiProviders[0]] || 'one AI'} only; adding the other free key (${aiProviders[0] === 'groq' ? '<code>GEMINI_API_KEY</code>' : '<code>GROQ_API_KEY</code>'}) gives a second opinion on every photo.`} About ${mins} minute${mins === 1 ? '' : 's'}.</p>
+        ${nCu < CLOSEUPS.length ? `<p style="margin-top:6px">${nCu ? `${CLOSEUPS.length - nCu} close-ups still to take` : 'Take the close-ups first'} for the best results &mdash; small chips and scratches rarely show in the video.</p>` : ''}
+        <div class="acts"><button type="button" class="btn primary" id="aiGo">Scan for damage</button></div>`;
+    }
+    body.querySelector('#aiGo').addEventListener('click', runScan);
+  }
+  async function runScan() {
+    const old = pins.filter(p => p.ai);
+    if (old.length && !confirm(`Scanning again replaces the ${old.length} AI pin${old.length === 1 ? '' : 's'} from the last scan (your own pins stay). Continue?`)) return;
+    const todo = photosToScan();
+    const frameFinds = [], cuFinds = [];
+    const skippedBy = new Set();
+    let failed = 0, lastErr = '';
+    scanning = { stop: false };
+    const setProg = (t, fr) => { renderAiBox(t); const b = f('#aiBar'); if (b) b.style.width = Math.round(fr * 100) + '%'; };
+    try {
+      for (let k = 0; k < todo.length && !scanning.stop; k++) {
+        const ph = todo[k]; ph.waits = 0;
+        setProg(`Looking at ${ph.label} (${k + 1} of ${todo.length})…`, k / todo.length);
+        let tries = 0, done = false;
+        while (!done && tries < 3 && !scanning.stop) {
+          tries++;
+          try {
+            const r = await fetch('/api/damage-scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: await photoB64(ph.url) }) });
+            const d = await r.json().catch(() => ({}));
+            if (r.status === 429 || d.limited) { tries--; if (++ph.waits > 6) throw new Error('the free AI limit is used up for now'); setProg(`The free AI is busy — waiting a moment, then ${ph.label}…`, k / todo.length); await new Promise(ok => setTimeout(ok, 15000)); continue; }
+            if (r.status === 401) throw new Error('Signed out — log in again.');
+            if (r.status === 503 && d.notConfigured) { aiReady = false; throw new Error('The AI key is not set up.'); }
+            if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+            (d.items || []).forEach(it => {
+              const base = { x: it.x, y: it.y, w: it.w, h: it.h, type: it.type, sev: it.sev, note: it.note || '', conf: it.conf, seenBy: it.seenBy || [] };
+              if (ph.closeup) cuFinds.push(Object.assign(base, { closeup: ph.closeup }));
+              else frameFinds.push(Object.assign(base, { frame: ph.frame }));
+            });
+            (d.skipped || []).forEach(nm => skippedBy.add(nm));
+            done = true;
+          } catch (e) {
+            if (/Signed out|not set up|limit is used up/.test(e.message)) throw e;
+            lastErr = e.message;
+            if (tries >= 2) { failed++; done = true; }
+          }
+        }
+      }
+      const stopped = scanning.stop;
+      const two = aiProviders.length > 1;
+      const fromFrames = crossCheck(frameFinds, frames.length);
+      const fromCu = cuFinds.map(c => Object.assign(c, { level: c.seenBy.length > 1 ? 'likely' : 'possible' }));
+      const found = fromFrames.concat(fromCu).map(p => Object.assign(p, { id: Date.now() + Math.random(), ai: true, checked: false }));
+      if (!two) found.forEach(p => { if (p.level === 'likely') p.level = 'possible'; });
+      pins = pins.filter(p => !p.ai).concat(found.sort((x, y) => (x.closeup ? 1e3 : x.frame) - (y.closeup ? 1e3 : y.frame)));
+      if (!stopped) { scanStatus = 'scanned'; scannedAt = Date.now(); }
+      scanning = null;
+      pinsChanged();
+      toast(stopped ? `Stopped — ${found.length} spot${found.length === 1 ? '' : 's'} pinned so far.` :
+        failed ? `Scan finished, but ${failed} photo${failed === 1 ? '' : 's'} couldn’t be checked (${lastErr}).` :
+        found.length ? `AI found ${found.length} spot${found.length === 1 ? '' : 's'} to check. Remember to save.` : 'AI scan found no damage. Remember to save.');
+      if (skippedBy.size && two) setTimeout(() => toast(`${[...skippedBy].map(nm => NAMES[nm]).join(' and ')} didn’t answer on some photos, so those were checked by one AI only.`), 3400);
+    } catch (e) {
+      toast('AI scan stopped: ' + e.message);
+    } finally {
+      scanning = null; renderAiBox();
+    }
+  }
+
+  renderVideoArea(); renderCloseups(); renderPinList();
+  fetch('/api/damage-scan').then(r => r.json()).then(d => { aiReady = !!d.ready; aiProviders = d.providers || []; }).catch(() => { aiReady = false; }).finally(() => renderAiBox());
+
+  /* ---- VIN scan (same flow as the vehicle editor) ---- */
+  let tesseractReady = null;
+  function ensureTesseract() {
+    if (window.Tesseract) return Promise.resolve();
+    if (tesseractReady) return tesseractReady;
+    tesseractReady = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve; s.onerror = () => reject(new Error('Could not load the text scanner'));
+      document.head.appendChild(s);
+    });
+    return tesseractReady;
+  }
+  let zxingReady = null;
+  function ensureZXing() {
+    if (window.ZXingBrowser) return Promise.resolve();
+    if (zxingReady) return zxingReady;
+    zxingReady = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@zxing/browser@latest';
+      s.onload = resolve; s.onerror = () => reject(new Error('Could not load the barcode scanner'));
+      document.head.appendChild(s);
+    });
+    return zxingReady;
+  }
+  const VIN_RE = /[A-HJ-NPR-Z0-9]{17}/g;
+  function bestVinGuess(text) {
+    const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, ' ');
+    const matches = clean.match(VIN_RE);
+    if (!matches || !matches.length) return '';
+    matches.sort((x, y) => { const sc = s => (/[A-Z]/.test(s) ? 1 : 0) + (/[0-9]/.test(s) ? 1 : 0); return sc(y) - sc(x); });
+    return matches[0];
+  }
+  // The window sticker almost always carries the VIN in a scannable code too — either a Code 39
+  // barcode of the bare VIN, or a QR code (often a URL to an online window-sticker page with the
+  // VIN embedded in it). Either way, decoding a code is far more reliable than OCR — it's a
+  // machine-readable format with built-in error checking, not character-by-character guessing.
+  // ZXing checks all common formats (barcode and QR alike), so one call covers both; the decoded
+  // text might be a bare VIN or might have it embedded in a longer URL, so we extract rather than
+  // require an exact match.
+  async function tryDecodeVinCode(file) {
+    try {
+      await ensureZXing();
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = url; });
+      const result = await new ZXingBrowser.BrowserMultiFormatReader().decodeFromImageElement(img);
+      URL.revokeObjectURL(url);
+      return bestVinGuess((result && result.getText && result.getText()) || '');
+    } catch (e) {
+      return ''; // no scannable code on the label, or it couldn't be read — the OCR fallback still runs
+    }
+  }
+  function wireVinConfirm(panel, previewUrl) {
+    panel.querySelector('#vinCancel').addEventListener('click', () => { panel.hidden = true; panel.innerHTML = ''; URL.revokeObjectURL(previewUrl); });
+    panel.querySelector('#vinUse').addEventListener('click', async () => {
+      const v = panel.querySelector('#vinGuess').value.trim().toUpperCase();
+      if (v.length !== 17) { toast('A VIN is 17 characters \u2014 check for typos.'); return; }
+      f('#fVin').value = v; panel.hidden = true; panel.innerHTML = ''; URL.revokeObjectURL(previewUrl);
+      try {
+        const d = await api('/api/decode-vin?vin=' + encodeURIComponent(v));
+        const filled = [];
+        if (d.year && !f('#fYear').value) { f('#fYear').value = d.year; filled.push('year'); }
+        if (d.make && !f('#fMake').value) { f('#fMake').value = d.make; filled.push('make'); }
+        if (d.model && !f('#fModel').value) { f('#fModel').value = d.model; filled.push('model'); }
+        if (d.trim && !f('#fTrim').value) { f('#fTrim').value = d.trim; filled.push('trim'); }
+        toast(filled.length ? `VIN decoded \u2014 filled in ${filled.join(', ')}.` : 'VIN decoded.');
+      } catch (err) { toast("Couldn't decode that VIN: " + err.message); }
+    });
+  }
+  // the shared VIN scanner (same as Lot Management): barcode + two AI readers, live barcode scan
+  async function useVin(v) {
+    f('#fVin').value = v;
+    try {
+      const d = await api('/api/decode-vin?vin=' + encodeURIComponent(v));
+      const filled = [];
+      if (d.year && !f('#fYear').value) { f('#fYear').value = d.year; filled.push('year'); }
+      if (d.make && !f('#fMake').value) { f('#fMake').value = d.make; filled.push('make'); }
+      if (d.model && !f('#fModel').value) { f('#fModel').value = d.model; filled.push('model'); }
+      if (d.trim && !f('#fTrim').value) { f('#fTrim').value = d.trim; filled.push('trim'); }
+      toast(filled.length ? `VIN decoded \u2014 filled in ${filled.join(', ')}.` : 'VIN decoded.');
+    } catch (err) { toast("Couldn't decode that VIN: " + err.message); }
+  }
+  f('#scanVinBtn').addEventListener('click', () => VinScan.open({ current: f('#fVin').value.trim(), onVin: useVin }));
+  f('#vinPhotoInput').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    const panel = f('#vinScanPanel'); const previewUrl = URL.createObjectURL(file);
+    panel.hidden = false;
+    panel.innerHTML = `<div class="row2"><img src="${previewUrl}" alt=""><div class="col"><div class="status"><span class="spin" style="width:14px;height:14px"></span> <span id="vinStatusTxt">Checking for a barcode or QR code\u2026</span></div><div class="raw" id="vinRaw"></div></div></div>`;
+
+    const codeVin = await tryDecodeVinCode(file);
+    if (codeVin) {
+      panel.querySelector('.status').innerHTML = '<span>Read from a code on the label \u2014 double-check it below:</span>';
+      panel.insertAdjacentHTML('beforeend', `<div class="confirm"><input class="input" id="vinGuess" maxlength="17" style="text-transform:uppercase" value="${esc(codeVin)}" placeholder="17-character VIN"></div><div class="foot"><button type="button" class="btn" id="vinCancel">Cancel</button><button type="button" class="btn primary" id="vinUse">Use this VIN</button></div>`);
+      wireVinConfirm(panel, previewUrl);
+      return;
+    }
+
+    panel.querySelector('#vinStatusTxt').textContent = 'No code found \u2014 reading the printed text\u2026';
+    try {
+      await ensureTesseract();
+      const { data } = await window.Tesseract.recognize(file, 'eng');
+      const guess = bestVinGuess(data.text || '');
+      panel.querySelector('#vinRaw').textContent = (data.text || '').trim().slice(0, 200);
+      panel.querySelector('.status').innerHTML = guess ? '<span>Found a possible VIN \u2014 check it below:</span>' : '<span>Could not find a clear VIN.</span>';
+      panel.insertAdjacentHTML('beforeend', `<div class="confirm"><input class="input" id="vinGuess" maxlength="17" style="text-transform:uppercase" value="${guess}" placeholder="17-character VIN"></div><div class="foot"><button type="button" class="btn" id="vinCancel">Cancel</button><button type="button" class="btn primary" id="vinUse">Use this VIN</button></div>`);
+      wireVinConfirm(panel, previewUrl);
+    } catch (err) {
+      panel.querySelector('.status').textContent = 'Could not read that photo: ' + err.message;
+    }
+  });
+
+  f('#cancelBtn').addEventListener('click', () => renderList());
+  f('#saveBtn').addEventListener('click', async () => {
+    const saveBtn = f('#saveBtn'); saveBtn.disabled = true; saveBtn.textContent = 'Saving\u2026';
+    const payload = {
+      id: a.id,
+      customer: { name: f('#fName').value.trim(), phone: f('#fPhone').value.trim(), email: f('#fEmail').value.trim() },
+      vehicle: { year: f('#fYear').value.trim(), make: f('#fMake').value.trim(), model: f('#fModel').value.trim(), trim: f('#fTrim').value.trim(), odometer: f('#fOdo').value.trim(), vin: f('#fVin').value.trim() },
+      notes: f('#fNotes').value.trim(),
+      frames, closeups, pins, scanStatus, scannedAt,
+    };
+    try {
+      if (isNew) await api('/api/appraisals', { method: 'POST', body: JSON.stringify(payload) });
+      else await api('/api/appraisal?id=' + encodeURIComponent(a.id), { method: 'PUT', body: JSON.stringify(payload) });
+      toast('Appraisal saved.'); renderList();
+    } catch (e) { toast(e.message); saveBtn.disabled = false; saveBtn.textContent = 'Save appraisal'; }
+  });
+}
+
+(async () => { (await checkSession()) ? renderList() : renderLogin(); })();
+</script>
+</body>
+</html>

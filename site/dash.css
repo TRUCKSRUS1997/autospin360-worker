@@ -1,0 +1,153 @@
+/* AutoSpin360 dashboards (dealer admin, appraisals, owner console).
+   Loaded AFTER each page's own <style>, so these rules refine the page's existing classes —
+   nothing here renames or removes a class the page scripts rely on. */
+
+/* ---------- navigation ---------- */
+.topbar nav>span{display:inline-flex; align-items:center; gap:8px; padding:7px 14px 7px 8px; margin-right:6px; border-radius:999px; background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--text)!important; font-size:13px!important; font-weight:500}
+.topbar nav>span::before{content:""; width:22px; height:22px; border-radius:50%; background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 40%,#000))}
+.topbar nav a#logoutLink{color:var(--faint)}
+.topbar nav a#logoutLink:hover{color:var(--bad); background:rgba(255,107,114,.08)}
+@media (max-width:720px){
+  .topbar{flex-wrap:wrap; row-gap:8px; padding-bottom:8px}
+  .topbar nav{order:3; flex:1 0 100%; overflow-x:auto; padding:2px 0 4px; margin:0 -4px; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+  .topbar nav::-webkit-scrollbar{display:none}
+  .topbar nav a,.topbar nav>span{flex:none; white-space:nowrap; min-height:40px; border:1px solid var(--line)}
+  .topbar nav>span{order:-1; border-color:var(--line)}
+}
+
+/* ---------- login ---------- */
+.login-wrap{position:relative; max-width:420px!important; margin:min(12vh,96px) auto 0!important; padding:40px 34px 34px!important; background:linear-gradient(180deg,var(--panel2),var(--panel))!important; border:1px solid var(--line2)!important; border-radius:var(--r-xl)!important; box-shadow:var(--shadow-2); overflow:hidden; animation:rise .6s var(--ease) both}
+.login-wrap::before{content:""; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.login-wrap::after{content:""; position:absolute; right:-80px; top:-80px; width:220px; height:220px; border-radius:50%; background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 18%,transparent),transparent); pointer-events:none}
+.login-wrap h1{position:relative; font-size:24px!important; letter-spacing:-.03em; margin:0 0 22px!important}
+.login-wrap .eyebrow{position:relative}
+.login-wrap form{position:relative}
+@media (max-width:520px){.login-wrap{padding:32px 22px 26px!important; margin-top:36px!important}}
+
+/* ---------- page header, stat tiles, toolbar ---------- */
+.row{margin-bottom:22px!important}
+.row h1{font-size:clamp(24px,3vw,34px)!important; letter-spacing:-.03em}
+.dash-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:24px}
+.dash-head h1{font-size:clamp(28px,3.6vw,40px); font-weight:700; letter-spacing:-.035em; margin:0}
+.dash-head .eyebrow{margin-bottom:8px}
+.dash-actions{display:flex; gap:10px; flex-wrap:wrap}
+.stats{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:26px}
+.stat{position:relative; overflow:hidden; padding:18px 20px; border-radius:var(--r-lg); border:1px solid var(--line); background:linear-gradient(160deg,var(--panel2),var(--panel)); box-shadow:var(--shadow-1)}
+.stat::after{content:""; position:absolute; right:-30px; top:-30px; width:110px; height:110px; border-radius:50%; background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 14%,transparent),transparent)}
+.stat span{display:block; font-size:11.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:8px}
+.stat b{display:block; font:700 30px/1 var(--font-display); letter-spacing:-.03em}
+.stat b.sm{font-size:18px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dash-tools{display:flex; gap:12px; margin-bottom:14px}
+.dash-search{position:relative; flex:1}
+.dash-search svg{position:absolute; left:15px; top:50%; width:18px; height:18px; transform:translateY(-50%); color:var(--muted); pointer-events:none}
+.dash-search .input{padding-left:44px; min-height:50px; border-radius:14px; background:var(--panel)}
+@media (max-width:640px){
+  .stats{grid-template-columns:1fr 1fr}
+  .stats .stat:last-child{grid-column:1/-1}
+  .dash-head{align-items:stretch}
+  .dash-actions{width:100%}
+  .dash-actions .btn{flex:1}
+}
+
+/* ---------- vehicle / appraisal / admin lists ---------- */
+.vlist{border:0!important; border-radius:0!important; overflow:visible!important; display:grid; gap:12px}
+.vrow{position:relative; display:flex; align-items:center; gap:16px!important; padding:12px 14px 12px 12px!important; border:1px solid var(--line)!important; border-radius:18px; background:linear-gradient(180deg,var(--panel2),var(--panel)); transition:border-color .25s,transform .3s var(--ease),box-shadow .3s; animation:rise .5s var(--ease) both}
+.vrow:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line2))!important; transform:translateY(-2px); box-shadow:var(--shadow-1)}
+.vrow:last-child{border-bottom:1px solid var(--line)!important}
+.vrow .thumb{width:112px!important; height:76px!important; border-radius:12px!important; background:var(--bg2)!important; font-size:11px!important; letter-spacing:.04em}
+.vrow .meta b{font:600 16px var(--font-display)!important; letter-spacing:-.015em}
+.vrow .meta span{font-size:12.5px!important; letter-spacing:.02em}
+.vrow .actions .btn{min-height:40px; padding:8px 14px}
+.vrow .tag{margin-right:4px}
+@media (max-width:640px){
+  .vrow{flex-wrap:wrap; gap:12px 14px!important}
+  .vrow .thumb{width:96px!important; height:68px!important}
+  .vrow .meta{flex:1 1 calc(100% - 120px)}
+  .vrow .actions{flex:1 1 100%!important; display:grid!important; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); gap:8px!important}
+  .vrow .actions .btn{width:100%; min-height:44px}
+  .vrow .tag{order:5}
+}
+.tag{border-radius:999px; font-weight:600; letter-spacing:.03em}
+
+/* ---------- sheets (modal windows) ---------- */
+.overlay,.sheet-bg,.pinedit{-webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); background:rgba(4,5,7,.72)!important; animation:fadeIn .25s ease both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.overlay{align-items:flex-start!important}
+.sheet{margin:auto; background:linear-gradient(180deg,var(--panel2),var(--panel))!important; border:1px solid var(--line2)!important; border-radius:var(--r-xl)!important; padding:26px 26px 22px!important; box-shadow:var(--shadow-2); animation:sheetIn .4s var(--ease) both}
+@keyframes sheetIn{from{opacity:0; transform:translateY(24px) scale(.985)}to{opacity:1; transform:none}}
+.sheet h2{font-size:22px!important; letter-spacing:-.03em; margin-bottom:18px!important}
+.sheet-foot,.foot{border-top-color:var(--line)!important}
+.pinedit .card{border:1px solid var(--line2); box-shadow:var(--shadow-2); animation:sheetIn .35s var(--ease) both}
+@media (max-width:640px){
+  .overlay,.sheet-bg{padding:0!important; align-items:flex-end!important}
+  .sheet{margin:auto 0 0 0!important; max-width:none!important; min-height:92vh; border-radius:26px 26px 0 0!important; padding:22px 18px calc(24px + var(--safe-b))!important; border-left:0!important; border-right:0!important; border-bottom:0!important}
+  .sheet-foot .btn,.foot .btn{flex:1}
+  .sheet-foot{position:sticky; bottom:calc(-1px - var(--safe-b)); z-index:2; background:var(--panel); border-top:1px solid var(--line)!important; margin-left:-18px; margin-right:-18px; padding:12px 18px calc(12px + var(--safe-b))!important; margin-bottom:calc(-1 * var(--safe-b)); box-shadow:0 -14px 18px -10px rgba(0,0,0,.45)}
+  body:has(.overlay) .home-fab{display:none}
+}
+
+/* ---------- photo grids, drop zones, slots, chips ---------- */
+.photo-grid .ph{border-radius:12px!important; border:1px solid var(--line); transition:transform .25s var(--ease),border-color .2s}
+.photo-grid .ph:hover{transform:translateY(-2px); border-color:var(--line2)}
+.photo-grid .ph.cover{border-color:var(--accent)}
+.drop,.slot{border-radius:16px!important; border-color:var(--line2)!important; background:var(--bg2)!important; transition:border-color .2s,background .2s}
+.drop:hover,.slot:hover{border-color:var(--accent)!important; background:color-mix(in srgb,var(--accent) 6%,var(--bg2))!important}
+.slot.filled:hover{background:var(--bg2)!important}
+.guide-box,.aiscan,.vin-scan{border-radius:16px!important; border-color:var(--line)!important; background:var(--bg2)!important}
+.tchips button,.chips span{transition:background .2s,color .2s,border-color .2s}
+.tchips button:hover{border-color:var(--muted)}
+.icon-opt{border-radius:16px!important; transition:border-color .2s,background .2s,transform .25s var(--ease)}
+.icon-opt:hover{transform:translateY(-2px)}
+.icon-opt.sel{border-color:var(--accent)!important; background:color-mix(in srgb,var(--accent) 9%,var(--panel2))!important}
+.hint{line-height:1.5}
+.progress{font-weight:500}
+
+/* ---------- appraisal workspace ---------- */
+.page{max-width:900px!important}
+h3.sec{font:600 12px var(--font-body)!important; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin:30px 0 4px!important; display:flex; align-items:center; gap:10px}
+h3.sec::after{content:""; flex:1; height:1px; background:var(--line)}
+.stage{border-radius:var(--r-xl)!important; border:1px solid rgba(255,255,255,.08); background:radial-gradient(120% 90% at 50% 0%,#1a1d22 0%,#0e1013 70%)!important; box-shadow:var(--shadow-2)}
+.stage .bar,.zbar{background:var(--glass)!important; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border:1px solid var(--glass-line); border-radius:16px!important}
+.pinlist{border-radius:16px!important; background:var(--panel)}
+.pinrow{padding:11px 14px!important}
+.aiscan{padding:18px!important}
+
+/* ---------- owner console ---------- */
+.head h1{font-size:clamp(24px,3vw,34px)!important; letter-spacing:-.03em}
+.dlist{border:0!important; border-radius:0!important; overflow:visible!important; display:grid; gap:12px}
+.drow{padding:16px 18px!important; border:1px solid var(--line)!important; border-radius:18px; background:linear-gradient(180deg,var(--panel2),var(--panel)); transition:border-color .25s,transform .3s var(--ease); animation:rise .5s var(--ease) both}
+.drow:last-child{border-bottom:1px solid var(--line)!important}
+.drow:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line2))!important; transform:translateY(-2px)}
+.drow .main b{font:600 17px var(--font-display)!important; letter-spacing:-.02em}
+.pill{letter-spacing:.04em}
+.meter .bar{height:8px!important; width:150px!important; border-radius:6px!important}
+.meter .bar b{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 70%,#000),var(--accent))!important}
+.done-box{border-radius:14px!important}
+@media (max-width:640px){
+  .drow .acts{width:100%; display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px}
+  .drow .acts .btn{width:100%}
+}
+
+/* ===== mobile polish (2026-11-18) ===== */
+.vrow{min-width:0; max-width:100%; box-sizing:border-box}
+.vrow .meta b{overflow:hidden; text-overflow:ellipsis}
+main,.wrap,.list,#list,#vehicleList{min-width:0}
+@media (max-width:720px){
+  .topbar nav{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent); mask-image:linear-gradient(90deg,#000 88%,transparent); padding-right:28px}
+  .overlay .modal,.modal{max-width:100vw}
+  .grid2,.grid3{grid-template-columns:1fr!important}
+  input,select,textarea{font-size:16px!important}          /* no zoom-in on iPhone */
+  .btn{min-height:44px}
+  .photo-grid .ph button{width:36px!important; height:36px!important; min-height:0!important; font-size:15px!important}
+  .photo-grid .ph .cvr{right:6px!important; bottom:6px!important}
+}
+@media (max-width:400px){
+  .vrow .thumb{width:80px!important; height:60px!important}
+  .vrow .meta{flex:1 1 calc(100% - 100px)}
+  .stats{grid-template-columns:1fr 1fr}
+}
+@media (hover:none){ .photo-grid .ph .ops{opacity:1; pointer-events:none} .photo-grid .ph .ops button{pointer-events:auto} }   /* photo controls are always visible on touch screens */
+@media (pointer:coarse){
+  #typeChips button{min-height:44px; padding:0 16px}
+  .photo-grid .ph button{width:36px!important; height:36px!important}
+}

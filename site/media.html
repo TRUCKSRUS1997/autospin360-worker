@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Media | AutoSpin360</title>
+<link rel="icon" href="/api/icon?size=192" sizes="192x192">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/dash.css">
+<link rel="stylesheet" href="/viewer.css">
+<style>
+.mg{display:grid; gap:16px}
+.card2{border:1px solid var(--line2,#2b2f36); background:var(--panel,#17191e); border-radius:18px; padding:16px}
+.card2 h2{margin:0 0 10px; font:600 17px var(--font-display,system-ui)}
+.meter{height:14px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden}
+.meter i{display:block; height:100%; background:var(--accent,#f2b705); border-radius:99px; transition:width .4s}
+.meter.warn i{background:#ffb44a} .meter.bad i{background:#ff6b73}
+.kv{display:flex; flex-wrap:wrap; gap:6px 22px; color:var(--muted,#a0a5ae); font-size:13px; margin-top:10px}
+.kv b{color:var(--ink,#f4f2ee)}
+.vt{width:100%; border-collapse:collapse; font-size:13.5px}
+.vt th{text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted,#a0a5ae); padding:6px 8px; border-bottom:1px solid var(--line2,#2b2f36)}
+.vt td{padding:10px 8px; border-bottom:1px solid var(--line2,#2b2f36); vertical-align:middle}
+.vtw{overflow-x:auto}
+.pill{display:inline-block; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; background:rgba(255,255,255,.08)}
+.pill.ok{background:rgba(70,200,120,.2); color:#6fe0a0} .pill.part{background:rgba(255,180,74,.2); color:#ffb44a} .pill.none{color:var(--muted,#a0a5ae)}
+.b2{min-height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--line2,#2b2f36); background:var(--panel,#17191e); color:var(--ink,#f4f2ee); font:600 13px var(--font-body,system-ui); cursor:pointer}
+.b2.pri{background:var(--accent,#f2b705); color:var(--accent-ink,#1a1400); border-color:transparent} .b2.dng{color:#ff8b92}
+.b2:disabled{opacity:.5; cursor:default}
+.row2{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.f2{padding:10px 12px; min-height:44px; border-radius:12px; border:1px solid var(--line2,#2b2f36); background:#111317; color:var(--ink,#f4f2ee); font:16px var(--font-body,system-ui)}
+.mp{margin-top:6px}
+.tabs2{display:flex; gap:6px; flex-wrap:wrap; margin:10px 0}
+.tabs2 button[aria-pressed=true]{background:var(--accent,#f2b705); color:var(--accent-ink,#1a1400); border-color:transparent}
+.ph{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:10px}
+.ph figure{margin:0; border:1px solid var(--line2,#2b2f36); border-radius:12px; overflow:hidden; background:#0d0e11}
+.ph img{display:block; width:100%; aspect-ratio:4/3; object-fit:cover}
+.ph figcaption{padding:6px; display:grid; gap:6px; font-size:12px; color:var(--muted,#a0a5ae)}
+.ph figcaption input{width:100%; min-height:36px; font-size:14px}
+.ph .b2{min-height:36px; padding:0 8px; font-size:12px}
+#toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%); padding:12px 18px; border-radius:12px; background:#222; color:#fff; z-index:900; display:none; max-width:90vw}
+.prog{height:6px; background:rgba(255,255,255,.1); border-radius:9px; overflow:hidden; margin-top:6px} .prog i{display:block; height:100%; width:0; background:var(--accent,#f2b705)}
+.pinmod{position:fixed; inset:0; z-index:700; background:rgba(5,6,8,.95); display:flex; flex-direction:column; padding:12px; gap:10px; color:#f4f2ee}
+.pinmod .box{position:relative; flex:1; min-height:0; display:grid; place-items:center}
+.pinmod .ib{position:relative; line-height:0; cursor:crosshair} .pinmod img{max-width:100%; max-height:calc(100vh - 220px)}
+.pinmod .pn{position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; background:var(--accent,#f2b705); color:#1a1400; display:grid; place-items:center; font-weight:800; border:2px solid #fff; line-height:1}
+</style></head>
+<body>
+<header class="topbar"><a class="brand" href="/">AutoSpin360</a><nav><a href="/admin.html">Dashboard</a></nav></header>
+<main class="wrap" id="app"><div class="loader"><span class="spin"></span> Loading&hellip;</div></main>
+<div id="toast" role="status"></div>
+<script src="/media-tools.js"></script>
+<script src="/tour.js"></script>
+<script src="/showroom.js"></script>
+<script src="/viewer.js"></script>
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = n => n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(0, Math.round(n / 1024)) + ' KB';
+const app = $('#app'), toastEl = $('#toast'); let tt;
+const toast = m => { toastEl.textContent = m; toastEl.style.display = 'block'; clearTimeout(tt); tt = setTimeout(() => toastEl.style.display = 'none', 4200); };
+async function api(p, o) { const r = await fetch(p, Object.assign({ credentials: 'same-origin', headers: { 'content-type': 'application/json' } }, o)); const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || ('Error ' + r.status)); e.status = r.status; throw e; } return j; }
+const CATS = AS360Tour.GROUPS, ALLKEYS = CATS.flatMap(g => g[1]);
+let stor = null, vehicles = [], recs = {};
+
+function completion(v) {
+  const ext = (v.exterior || []).filter(Boolean).length;
+  const e = ext >= 36 ? ['ok', ext + ' frames'] : ext >= 12 ? ['part', ext + ' frames'] : ext >= 2 ? ['part', 'Limited (' + ext + ')'] : ext === 1 ? ['part', 'Single photo'] : ['none', 'None'];
+  const iv = (v.interiorViews || []).length, ip = (v.interiorShots || []).filter(Boolean).length + (v.panorama ? 1 : 0);
+  const i = iv ? ['ok', iv + ' viewpoint' + (iv > 1 ? 's' : '')] : ip ? ['part', 'Existing'] : ['none', 'None'];
+  const n = Object.keys(v.inspection || {}).length, s = n >= 8 ? ['ok', n + '/26'] : n ? ['part', n + '/26'] : ['none', 'None'];
+  const vc = (v.videos || []).length, vv = vc ? ['ok', vc + ' video' + (vc > 1 ? 's' : '')] : ['none', 'None'];
+  const cap = Object.keys(v.captures || {}).length, c = cap >= 8 ? ['ok', cap + '/8 clips'] : cap ? ['part', cap + '/8 clips'] : ['none', 'None'];
+  return { e, i, s, vv, c };
+}
+const pill = x => `<span class="pill ${x[0]}">${esc(x[1])}</span>`;
+
+async function load() {
+  try { stor = await api('/api/storage'); } catch (e) {
+    if (e.status === 401) { app.innerHTML = '<div class="card2"><h2>Sign in required</h2><p>The Media page is for dealership staff. <a href="/admin.html">Sign in on the dashboard</a>, then come back.</p></div>'; return; }
+    app.innerHTML = '<div class="card2">Could not load storage: ' + esc(e.message) + '</div>'; return;
+  }
+  const list = await api('/api/vehicles').catch(() => []);
+  vehicles = Array.isArray(list) ? list : (list.vehicles || []);
+  await Promise.all(vehicles.map(async v => { try { recs[v.id] = await api('/api/vehicle?id=' + encodeURIComponent(v.id)); } catch (e) { recs[v.id] = v; } }));
+  render();
+}
+function render() {
+  const budget = stor.budgetGb * 1073741824, pct = budget ? stor.totalBytes / budget * 100 : 0;
+  const cls = pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : '';
+  const g = stor.groups || {};
+  const gl = [['photos', 'Photos'], ['media', 'Media (new uploads)'], ['originals', 'Original recordings'], ['records', 'Vehicle records'], ['appraisals', 'Appraisals'], ['trash', 'Trash (recoverable)'], ['other', 'Other']].filter(x => g[x[0]]);
+  let h = `<div class="mg"><div class="card2"><h2>Storage</h2>
+   <div class="row2"><b style="font-size:26px">${fmt(stor.totalBytes)}</b><span style="color:var(--muted)">across ${stor.objects} files, ${stor.vehicles} vehicles</span></div>
+   ${budget ? `<div class="meter ${cls}" style="margin-top:10px" role="img" aria-label="${pct.toFixed(0)}% of budget used"><i style="width:${Math.min(100, pct)}%"></i></div><div class="kv"><span><b>${pct.toFixed(0)}%</b> of your ${stor.budgetGb} GB budget</span>${pct >= 100 ? '<span style="color:#ff8b92"><b>Over budget.</b> Clean up or raise the budget.</span>' : pct >= 80 ? '<span style="color:#ffb44a"><b>Getting full.</b> Over 80% used.</span>' : ''}</div>` : '<p style="color:var(--muted);margin:10px 0 0">No budget set. Set one to get usage warnings. Your R2 plan limit is shown in the Cloudflare dashboard.</p>'}
+   <div class="row2" style="margin-top:12px"><label for="bud" style="font-size:13px">Budget (GB)</label><input id="bud" class="f2" type="number" min="0" step="0.5" value="${stor.budgetGb || ''}" style="width:110px"><button class="b2" id="budSave">Save budget</button></div>
+   <div class="kv">${gl.map(x => `<span>${x[1]}: <b>${fmt(g[x[0]].bytes)}</b> (${g[x[0]].n})</span>`).join('')}</div></div>`;
+  h += `<div class="card2"><h2>Vehicles</h2><div class="vtw"><table class="vt"><thead><tr><th>Vehicle</th><th>Exterior 360</th><th>Interior</th><th>Inspection</th><th>Video</th><th>Capture</th><th>Storage</th><th>Updated</th><th></th></tr></thead><tbody>`;
+  vehicles.forEach(x => { const v = recs[x.id] || x, c = completion(v), pv = (stor.perVehicle || {})[x.id] || { bytes: 0 }, name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Untitled';
+    h += `<tr><td><b>${esc(name)}</b><br><small style="color:var(--muted)">${esc(x.id)}</small></td><td>${pill(c.e)}</td><td>${pill(c.i)}</td><td>${pill(c.s)}</td><td>${pill(c.vv)}</td><td>${pill(c.c)}</td><td>${fmt(pv.bytes)}</td><td>${v.updatedAt ? new Date(v.updatedAt).toLocaleDateString() : ''}</td><td><div class="row2"><button class="b2 pri" data-m="${esc(x.id)}">Manage</button><a class="b2" style="display:inline-grid;place-items:center" href="/car.html?id=${encodeURIComponent(x.id)}" target="_blank" rel="noopener">Preview</a></div></td></tr>`; });
+  h += `</tbody></table></div><p style="color:var(--muted);font-size:13px;margin:10px 0 0">A section is only marked complete when real files exist for it. "Capture" counts the original recordings saved by the Capture Assistant.</p></div>`;
+  h += `<div class="card2"><h2>Cleanup</h2><p style="margin:0 0 8px;color:var(--muted)">Files that no saved vehicle uses and are over 24 hours old. Nothing is removed until you confirm, and removal moves files to a recoverable trash first. Originals recorded by the Capture Assistant are never listed unless their vehicle no longer references them.</p>`;
+  h += stor.orphanCount ? `<div class="kv"><span><b>${stor.orphanCount}</b> unused files, <b>${fmt(stor.orphanBytes)}</b></span></div><div class="row2" style="margin-top:10px"><button class="b2 dng" id="trash">Move unused files to trash</button></div>` : '<div class="kv"><span>No unused files found.</span></div>';
+  h += (g.trash ? `<div class="row2" style="margin-top:10px"><button class="b2" id="empty">Permanently delete trash older than 7 days</button><span style="color:var(--muted);font-size:13px">${fmt(g.trash.bytes)} in trash</span></div>` : '') + '</div><div id="manage"></div></div>';
+  app.innerHTML = h;
+  $('#budSave').onclick = async () => { try { await api('/api/storage', { method: 'POST', body: JSON.stringify({ action: 'budget', gb: $('#bud').value }) }); toast('Budget saved.'); stor = await api('/api/storage'); render(); } catch (e) { toast(e.message); } };
+  const tr = $('#trash'); if (tr) tr.onclick = async () => { if (!confirm('Move ' + stor.orphanCount + ' unused files (' + fmt(stor.orphanBytes) + ') to the recoverable trash?')) return; try { const r = await api('/api/storage', { method: 'POST', body: JSON.stringify({ action: 'trash', keys: stor.orphans.map(o => o.key) }) }); toast('Moved ' + r.moved + ' files to trash.'); stor = await api('/api/storage'); render(); } catch (e) { toast(e.message); } };
+  const em = $('#empty'); if (em) em.onclick = async () => { if (!confirm('Permanently delete trash older than 7 days? This cannot be undone.')) return; try { const r = await api('/api/storage', { method: 'POST', body: JSON.stringify({ action: 'empty-trash' }) }); toast('Deleted ' + r.deleted + ' files.'); stor = await api('/api/storage'); render(); } catch (e) { toast(e.message); } };
+  app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => manage(b.dataset.m));
+}
+
+/* ---------------- per-vehicle media manager ---------------- */
+function manage(id) {
+  const v = recs[id], box = $('#manage'); let tab = 'insp', cat = 'front-bumper', sec = 'walkaround', dirty = {};
+  const save = async () => { const body = {}; Object.keys(dirty).forEach(k => body[k] = v[k]); try { await api('/api/vehicle?id=' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(body) }); dirty = {}; recs[id] = await api('/api/vehicle?id=' + encodeURIComponent(id)); Object.assign(v, recs[id]); stor = await api('/api/storage'); toast('Saved.'); } catch (e) { toast('Could not save: ' + e.message); throw e; } };
+  const mark = k => { dirty[k] = 1; };
+  function prog(label) { const el = document.createElement('div'); el.innerHTML = `<div style="font-size:13px">${esc(label)}</div><div class="prog"><i></i></div>`; $('#mprog').appendChild(el); return { set: f => el.querySelector('i').style.width = Math.round(f * 100) + '%', done: () => el.remove() }; }
+  function draw() {
+    const name = [v.year, v.make, v.model].filter(Boolean).join(' ') || id;
+    let h = `<div class="card2" style="margin-top:16px"><h2>${esc(name)} <small style="font-weight:400;color:var(--muted)">${esc(id)}</small></h2><div class="tabs2 row2">${[['insp', 'Inspection photos'], ['vid', 'Videos'], ['int', 'Interior viewpoints'], ['docs', 'Documents'], ['info', 'Features & condition'], ['cap', 'Captured clips'], ['proc', 'Processing & 360']].map(t => `<button class="b2" data-t="${t[0]}" aria-pressed="${tab === t[0]}">${t[1]}</button>`).join('')}</div><div id="mprog"></div><div id="mbody"></div></div>`;
+    box.innerHTML = h; box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; draw(); });
+    body();
+  }
+  function body() {
+    const mb = $('#mbody');
+    if (tab === 'insp') {
+      const insp = v.inspection = v.inspection || {}, notes = v.inspectionNotes = v.inspectionNotes || {}, list = insp[cat] || [];
+      mb.innerHTML = `<div class="row2"><select id="cat" class="f2">${CATS.map(g => `<optgroup label="${g[0]}">${g[1].map(c => `<option value="${c[0]}" ${c[0] === cat ? 'selected' : ''}>${c[1]}${(insp[c[0]] || []).length ? ' (' + insp[c[0]].length + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select><label class="b2 pri" style="display:inline-grid;place-items:center">Add photos<input id="files" type="file" accept="image/*" multiple hidden></label></div>
+      <p style="color:var(--muted);font-size:13px">Photos are converted to ${AS360Media.format() === 'image/webp' ? 'WebP' : 'JPEG'} in three sizes (thumbnail, standard, full) before upload. Identical files are stored once.</p>
+      <label style="font-size:12px;color:var(--muted)">Note for this category (optional)</label><input id="cnote" class="f2" style="width:100%" maxlength="600" value="${esc(notes[cat] || '')}">
+      <div class="ph">${list.map((p, i) => `<figure><img alt="" src="${esc(p.t || p.m || p.f)}"><figcaption><input class="f2" data-cap="${i}" maxlength="300" placeholder="Description (optional)" value="${esc(p.cap || '')}"><div class="row2"><button class="b2" data-pin="${i}">Notes (${(p.pins || []).length})</button><button class="b2" data-l="${i}" ${i === 0 ? 'disabled' : ''}>←</button><button class="b2" data-r="${i}" ${i === list.length - 1 ? 'disabled' : ''}>→</button><button class="b2 dng" data-x="${i}">Remove</button></div></figcaption></figure>`).join('') || '<p style="color:var(--muted)">No photos for this category yet. It will not be shown to shoppers.</p>'}</div>
+      <div class="row2" style="margin-top:12px"><button class="b2 pri" id="sv">Save changes</button></div>`;
+      $('#cat').onchange = e => { cat = e.target.value; draw(); };
+      $('#cnote').oninput = e => { notes[cat] = e.target.value; mark('inspectionNotes'); };
+      mb.querySelectorAll('[data-cap]').forEach(i => i.oninput = () => { list[+i.dataset.cap].cap = i.value; mark('inspection'); });
+      mb.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { if (!confirm('Remove this photo from the vehicle? The file stays in storage until you clean up.')) return; list.splice(+b.dataset.x, 1); if (!list.length) delete insp[cat]; mark('inspection'); draw(); });
+      mb.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { const i = +b.dataset.l;[list[i - 1], list[i]] = [list[i], list[i - 1]]; mark('inspection'); draw(); });
+      mb.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const i = +b.dataset.r;[list[i + 1], list[i]] = [list[i], list[i + 1]]; mark('inspection'); draw(); });
+      mb.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => pinEditor(list[+b.dataset.pin], () => { mark('inspection'); draw(); }));
+      $('#files').onchange = async e => { const fs = [...e.target.files]; e.target.value = ''; for (const f of fs) { const pr = prog('Uploading ' + f.name); try { pr.set(.2); const r = await AS360Media.uploadPhoto(f, id); pr.set(1); (insp[cat] = insp[cat] || []).push({ id: r.id, t: r.t, m: r.m, f: r.f, cap: '', pins: [], at: Date.now() }); mark('inspection'); } catch (err) { toast(f.name + ': ' + err.message); } pr.done(); } draw(); };
+      $('#sv').onclick = () => save().then(draw).catch(() => {});
+    } else if (tab === 'vid') {
+      const vs = v.videos = v.videos || [];
+      mb.innerHTML = `<div class="row2"><select id="sec" class="f2">${Object.entries(AS360Tour.SECTIONS).map(([k, n]) => `<option value="${k}" ${k === sec ? 'selected' : ''}>${n}</option>`).join('')}</select><input id="vl" class="f2" placeholder="Label (optional)" maxlength="60"><label class="b2 pri" style="display:inline-grid;place-items:center">Add video<input id="vf" type="file" accept="video/mp4,video/webm,video/quicktime" hidden></label></div>
+      <p style="color:var(--muted);font-size:13px">MP4 or WebM, up to 60 MB each. Record at a moderate bitrate (1080p). This site does not re-encode video, so what you upload is what shoppers download. A preview image is taken from the real video.</p>
+      <div class="ph" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${vs.map((x, i) => `<figure>${x.poster ? `<img alt="" src="${esc(x.poster)}">` : ''}<figcaption><b>${esc(x.label || AS360Tour.SECTIONS[x.section])}</b><span>${fmt(x.bytes || 0)} · ${x.type}</span><button class="b2 dng" data-x="${i}">Remove</button></figcaption></figure>`).join('') || '<p style="color:var(--muted)">No videos yet.</p>'}</div>
+      <div class="row2" style="margin-top:12px"><button class="b2 pri" id="sv">Save changes</button></div>`;
+      $('#sec').onchange = e => sec = e.target.value;
+      mb.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { if (!confirm('Remove this video from the vehicle?')) return; vs.splice(+b.dataset.x, 1); mark('videos'); draw(); });
+      $('#vf').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > 60 * 1048576) { toast('That video is ' + fmt(f.size) + '. The limit is 60 MB. Compress it first (for example 1080p at about 6 Mbps).'); return; } if (/quicktime/.test(f.type) || /\.mov$/i.test(f.name)) { toast('MOV files from iPhone can be HEVC and may not play everywhere. Export as MP4 (H.264) first, or use Most Compatible in iPhone camera settings.'); } const pr = prog('Uploading ' + f.name); try { pr.set(.3); const r = await AS360Media.uploadVideo(f, id); pr.set(1); vs.push({ id: 'v' + Date.now().toString(36), section: sec, label: $('#vl').value, url: r.url, poster: r.poster, type: r.type, bytes: r.bytes }); mark('videos'); } catch (err) { toast(err.message); } pr.done(); draw(); };
+      $('#sv').onclick = () => save().then(draw).catch(() => {});
+    } else if (tab === 'int') {
+      const iv = v.interiorViews = v.interiorViews || [];
+      mb.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:0">Add a viewpoint only for a real 2:1 (equirectangular) panorama taken from that seat. Ordinary photos cannot be turned into a 360° view, so they are refused. Hotspots: place them after saving, in the page editor.</p><div class="row2"><input id="il" class="f2" placeholder="Label, e.g. Driver's seat" maxlength="40"><label class="b2 pri" style="display:inline-grid;place-items:center">Add panorama<input id="if" type="file" accept="image/*" hidden></label></div>
+      <div class="ph">${iv.map((x, i) => `<figure><img alt="" src="${esc(x.url)}" loading="lazy"><figcaption><input class="f2" data-l="${i}" value="${esc(x.label)}" maxlength="40"><span>${(x.hotspots || []).length} hotspot(s)</span><button class="b2" data-h="${i}">Place hotspots</button><button class="b2 dng" data-x="${i}">Remove</button></figcaption></figure>`).join('') || '<p style="color:var(--muted)">No viewpoints yet. The Interior tab will show the existing interior photos instead.</p>'}</div><div class="row2" style="margin-top:12px"><button class="b2 pri" id="sv">Save changes</button></div>`;
+      mb.querySelectorAll('[data-l]').forEach(i => i.oninput = () => { iv[+i.dataset.l].label = i.value; mark('interiorViews'); });
+      mb.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { if (!confirm('Remove this viewpoint?')) return; iv.splice(+b.dataset.x, 1); mark('interiorViews'); draw(); });
+      mb.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { const x = iv[+b.dataset.h]; if (!AS360Showroom.openEditor) { toast('Hotspot editor not available.'); return; }
+        AS360Showroom.openEditor({ vehicle: v, hotspots: (x.hotspots || []).map(h => Object.assign({}, h, { view: 'pano' })), exterior: [], interior: [], panorama: x.url, uploadPhoto: async file => (await AS360Media.uploadPhoto(file, id)).m, onDropPhoto: () => {}, onSave: async list => { x.hotspots = list.filter(h => h.view === 'pano'); mark('interiorViews'); try { await save(); } catch (e) {} draw(); } }); });
+      $('#if').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const lb = $('#il').value.trim() || 'Viewpoint ' + (iv.length + 1); const pr = prog('Uploading panorama'); try { pr.set(.3); const r = await AS360Media.uploadPano(f, id); iv.push({ id: 'p' + Date.now().toString(36), label: lb, url: r.url, hotspots: [] }); mark('interiorViews'); } catch (err) { toast(err.message); } pr.done(); draw(); };
+      $('#sv').onclick = () => save().then(draw).catch(() => {});
+    } else if (tab === 'docs') {
+      const ds = v.docs = v.docs || [];
+      mb.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:0">Service history or other paperwork you are happy for shoppers to see. PDF or photo.</p><div class="row2"><input id="dl" class="f2" placeholder="Label, e.g. Service record 2024" maxlength="80"><label class="b2 pri" style="display:inline-grid;place-items:center">Add document<input id="df" type="file" accept="application/pdf,image/*" hidden></label></div>
+      <ul>${ds.map((d, i) => `<li style="margin:8px 0"><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.label)}</a> <small style="color:var(--muted)">${fmt(d.bytes || 0)}</small> <button class="b2 dng" data-x="${i}">Remove</button></li>`).join('') || '<li style="color:var(--muted)">None yet.</li>'}</ul><button class="b2 pri" id="sv">Save changes</button>`;
+      mb.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { if (!confirm('Remove this document?')) return; ds.splice(+b.dataset.x, 1); mark('docs'); draw(); });
+      $('#df').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const lb = $('#dl').value.trim() || f.name; const pr = prog('Uploading ' + f.name); try { pr.set(.3); let r, type = 'image', bytes = f.size; if (f.type === 'application/pdf') { r = await AS360Media.upload(f, id); type = 'application/pdf'; } else { const p = await AS360Media.uploadPhoto(f, id); r = { url: p.f }; bytes = 0; } ds.push({ id: 'd' + Date.now().toString(36), label: lb, url: r.url, type, bytes }); mark('docs'); } catch (err) { toast(err.message); } pr.done(); draw(); };
+      $('#sv').onclick = () => save().then(draw).catch(() => {});
+    } else if (tab === 'info') {
+      mb.innerHTML = `<label style="font-size:12px;color:var(--muted)">Features &amp; equipment (one per line, only what is really on this vehicle)</label><textarea id="ft" class="f2" rows="8" style="width:100%" maxlength="5000">${esc((v.features || []).join('\n'))}</textarea><label style="font-size:12px;color:var(--muted)">Condition notes (optional, plain description including any visible defects)</label><textarea id="cd" class="f2" rows="4" style="width:100%" maxlength="1500">${esc(v.condition || '')}</textarea><div class="row2" style="margin-top:10px"><button class="b2 pri" id="sv">Save changes</button></div>`;
+      $('#ft').oninput = () => { v.features = $('#ft').value.split('\n').map(s => s.trim()).filter(Boolean); mark('features'); };
+      $('#cd').oninput = () => { v.condition = $('#cd').value; mark('condition'); };
+      $('#sv').onclick = () => save().then(draw).catch(() => {});
+    } else if (tab === 'proc') {
+      const p = v.processing, c = v.captures || {}, n = Object.keys(c).length;
+      if (!n) { mb.innerHTML = '<p style="color:var(--muted)">No captured clips yet. Record the 8 sections with the Capture Assistant first.</p>'; return; }
+      const stT = { queued: 'Waiting for the processor', running: 'Processing', review: 'Ready for your review', approved: 'Published', failed: 'Failed' };
+      let h = `<div class="row2"><b style="font-size:16px">${p ? stT[p.status] : 'Waiting for the processor'}</b>${p && p.status === 'running' ? `<span style="color:var(--muted)">${p.progress}%</span>` : ''}</div>`;
+      if (p && p.status === 'running') h += `<div class="prog"><i style="width:${p.progress}%"></i></div>`;
+      h += '<div class="vtw"><table class="vt"><thead><tr><th>Section</th><th>Status</th><th>Quality</th><th>Notes</th><th></th></tr></thead><tbody>' + ['front', 'front-left', 'driver', 'rear-left', 'rear', 'rear-right', 'passenger', 'front-right'].map(k => { const x = c[k]; return `<tr><td>${k}</td><td>${x ? pill([x.status === 'done' ? 'ok' : x.status === 'failed' ? 'part' : 'none', x.status]) : pill(['none', 'missing'])}</td><td>${x && x.quality ? x.quality + '/100' : ''}</td><td style="max-width:260px">${esc(x ? (x.error || (x.warnings || []).join('; ')) : 'Not recorded. Retake it in the Capture Assistant.')}</td><td>${x ? `<button class="b2" data-rt="${k}">Re-process</button>` : ''}</td></tr>`; }).join('') + '</tbody></table></div>';
+      if (p && p.warnings && p.warnings.length) h += `<div class="card2" style="margin-top:10px;border-color:#ffb44a"><b>Warnings</b><ul style="margin:6px 0 0">${p.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`;
+      if (p && p.frames && p.frames.length) {
+        const complete = !(p.missing || []).length && !p.warnings.some(w => /Not enough overlap|NOT a complete|failed/i.test(w));
+        h += `<h3 style="margin:14px 0 6px">${p.frames.length} frames ${complete ? '' : '<span class="pill part">incomplete rotation</span>'}</h3><p style="color:var(--muted);font-size:13px;margin-top:0">Remove unwanted frames and reorder, preview the rotation, then approve. Approving replaces this vehicle's exterior photos with these frames. ${complete ? '' : '<b>The processor could not confirm a complete rotation. Preview carefully before approving.</b>'}</p><div class="ph" id="fr">${p.frames.map((f, i) => `<figure><img loading="lazy" alt="" src="${esc(f.thumb || f.url)}"><figcaption><span>${i + 1} · ${esc(f.section)} · score ${f.score}</span><div class="row2"><button class="b2" data-fl="${i}" ${i === 0 ? 'disabled' : ''}>←</button><button class="b2" data-fr="${i}" ${i === p.frames.length - 1 ? 'disabled' : ''}>→</button><button class="b2 dng" data-fx="${i}">Remove</button></div></figcaption></figure>`).join('')}</div><div class="row2" style="margin-top:12px"><button class="b2" id="pv">Preview rotation</button><button class="b2 pri" id="ap" ${p.frames.length < 12 ? 'disabled title="Needs at least 12 frames"' : ''}>Approve and publish</button></div><div id="pvbox" style="margin-top:12px;height:min(60vh,460px);display:none"></div>`;
+      }
+      if (p && p.log && p.log.length) h += `<details style="margin-top:12px"><summary>Processing log</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted)">${esc(p.log.join('\n'))}</pre></details>`;
+      h += `<p style="color:var(--muted);font-size:13px">Processing runs on the dealership computer (see the processor folder). This page only shows its results. Original recordings are never changed or deleted.</p>`;
+      mb.innerHTML = h;
+      mb.querySelectorAll('[data-rt]').forEach(b => b.onclick = async () => { const k = b.dataset.rt; c[k].status = 'uploaded'; c[k].error = ''; v.captures = c; v.processing = null; mark('captures'); mark('processing'); try { await save(); toast('Queued for the processor.'); } catch (e) {} draw(); });
+      const mv = (i, d) => { const f = p.frames, j = i + d;[f[i], f[j]] = [f[j], f[i]]; mark('processing'); save().then(draw).catch(() => draw()); };
+      mb.querySelectorAll('[data-fl]').forEach(b => b.onclick = () => mv(+b.dataset.fl, -1)); mb.querySelectorAll('[data-fr]').forEach(b => b.onclick = () => mv(+b.dataset.fr, 1));
+      mb.querySelectorAll('[data-fx]').forEach(b => b.onclick = () => { p.frames.splice(+b.dataset.fx, 1); mark('processing'); save().then(draw).catch(() => draw()); });
+      const pv = $('#pv'); if (pv) pv.onclick = () => { const box = $('#pvbox'); box.style.display = 'block'; box.innerHTML = ''; window.VehicleViewer ? VehicleViewer.mount(box, { exterior: p.frames.map(f => f.url), interiorShots: [] }) : toast('Viewer not loaded.'); box.scrollIntoView({ behavior: 'smooth' }); };
+      const ap = $('#ap'); if (ap) ap.onclick = async () => { if (!confirm('Publish these ' + p.frames.length + ' frames as the vehicle 360? The current exterior photos will be replaced (the files stay in storage).')) return; v.exterior = p.frames.map(f => f.url); v.processing = Object.assign({}, p, { status: 'approved' }); mark('exterior'); mark('processing'); try { await save(); toast('Published.'); } catch (e) {} draw(); };
+    } else {
+      const c = v.captures || {}, names = { front: 'Front', 'front-left': 'Front-left quarter', driver: 'Driver side', 'rear-left': 'Rear-left quarter', rear: 'Rear', 'rear-right': 'Rear-right quarter', passenger: 'Passenger side', 'front-right': 'Front-right quarter' };
+      mb.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:0">Original recordings saved from the Capture Assistant. They are kept until you decide otherwise.</p><ul>${Object.keys(names).map(k => c[k] ? `<li style="margin:8px 0"><b>${names[k]}</b> ${fmt(c[k].bytes)} · ${Math.round(c[k].seconds)} s <a href="${esc(c[k].url)}" target="_blank" rel="noopener">Open original</a></li>` : `<li style="margin:8px 0;color:var(--muted)">${names[k]}: not recorded</li>`).join('')}</ul><a class="b2 pri" style="display:inline-grid;place-items:center" href="/capture.html?id=${encodeURIComponent(id)}">Open Capture Assistant</a>`;
+    }
+  }
+  function pinEditor(p, done) {
+    const m = document.createElement('div'); m.className = 'pinmod'; m.innerHTML = `<div class="row2"><b style="margin-right:auto">Tap the photo to place a note</b><button class="b2" data-a="ok">Done</button></div><div class="box"><div class="ib"><img alt="" src="${esc(p.m || p.f)}"></div></div><div class="row2"><input class="f2" id="pt" placeholder="Title" maxlength="60"><input class="f2" id="pn" placeholder="Description" maxlength="300" style="flex:1"></div><div class="row2" id="pl"></div>`; document.body.appendChild(m);
+    p.pins = p.pins || []; const ib = m.querySelector('.ib'); let sel = -1;
+    const paint = () => { ib.querySelectorAll('.pn').forEach(n => n.remove()); p.pins.forEach((q, i) => { const n = document.createElement('div'); n.className = 'pn'; n.textContent = i + 1; n.style.left = q.x * 100 + '%'; n.style.top = q.y * 100 + '%'; ib.appendChild(n); });
+      m.querySelector('#pl').innerHTML = p.pins.map((q, i) => `<button class="b2 ${i === sel ? 'pri' : ''}" data-s="${i}">${i + 1}. ${esc(q.title || q.note).slice(0, 20)}</button>`).join('') + (sel > -1 ? '<button class="b2 dng" data-a="del">Delete note</button>' : ''); };
+    ib.addEventListener('click', e => { const r = ib.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height, t = m.querySelector('#pt').value.trim(), d = m.querySelector('#pn').value.trim(); if (!t && !d) { toast('Type a title or description first, then tap the photo.'); return; } if (p.pins.length >= 10) { toast('Up to 10 notes per photo.'); return; } p.pins.push({ x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4, title: t, note: d }); m.querySelector('#pt').value = m.querySelector('#pn').value = ''; sel = -1; paint(); });
+    m.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a === 'ok') { m.remove(); done(); } else if (b.dataset.a === 'del') { p.pins.splice(sel, 1); sel = -1; paint(); } else if (b.dataset.s) { sel = +b.dataset.s; paint(); } });
+    paint();
+  }
+  draw();
+}
+load();
+</script>
+</body></html>

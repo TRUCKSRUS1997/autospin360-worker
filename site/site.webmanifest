@@ -1,0 +1,16 @@
+{
+  "name": "AutoSpin360",
+  "short_name": "AutoSpin360",
+  "description": "360\u00b0 vehicle inventory, interior tours, and dealer appraisals.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1216",
+  "theme_color": "#0f1216",
+  "orientation": "any",
+  "icons": [
+    { "src": "/api/icon?size=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/api/icon?size=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/api/icon?size=512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
