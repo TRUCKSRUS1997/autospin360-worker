@@ -8,11 +8,11 @@ if (!document.querySelector('script[src="/upright.js"]')) {
   const u = document.createElement('script'); u.src = '/upright.js'; document.head.appendChild(u);
 }
 const BS = global.BgStudio, PT = global.PhotoTools;
-const CHOICES = [['', 'Real photo'], ['real', 'Lot, blurred'], ['studio', 'Clean studio'], ['showroom', 'Dark showroom'], ['branded', (global.DEALER && global.DEALER.name) || 'Your dealership'], ['turntable', 'Turntable'], ['mirror', 'Glass turntable'], ['custom', 'Custom photo']];
+const CHOICES = [['', 'Real photo'], ['studio', 'Clean studio'], ['showroom', 'Dark showroom'], ['branded', (global.DEALER && global.DEALER.name) || 'Your dealership'], ['turntable', 'Turntable'], ['mirror', 'Glass turntable'], ['custom', 'Custom photo']];
 const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const CSS = `
-.bg-chips{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:10px}
+.bg-chips{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:10px}
 @media (max-width:760px){.bg-chips{grid-template-columns:repeat(4,1fr)}}
 @media (max-width:420px){.bg-chips{grid-template-columns:repeat(3,1fr)}}
 .bg-chip{display:flex;flex-direction:column;gap:4px;padding:5px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;text-align:center}
@@ -56,7 +56,7 @@ function mount(overlay, ctx) {
   const sec = document.createElement('div');
   sec.innerHTML = `
     <h3 style="font-size:15px;margin:18px 0 2px">Background</h3>
-    <p class="hint">Swap the lot behind the vehicle on the exterior spin. The AI cut-out runs free on this computer’s graphics card, so use Chrome or Edge on a computer (the first time downloads about 120&nbsp;MB). The vehicle itself is never altered. For the cleanest result: hold the stick level at headlight height (not up high looking down on the roof), keep the sun behind you or shoot in shade, and stay far enough back that the whole vehicle, roof included, fits in the frame. If a showroom background doesn’t sit right, pick <b>Lot, blurred</b>: it keeps the real photo and just softens the lot behind the vehicle.</p>
+    <p class="hint">Swap the lot behind the vehicle on the exterior spin. The AI cut-out runs free on this computer’s graphics card, so use Chrome or Edge on a computer (the first time downloads about 120&nbsp;MB). The vehicle itself is never altered. For the cleanest cut-out, record from far enough back that the whole vehicle, roof included, fits in the frame.</p>
     <div class="guide-box">
       <div class="bg-chips" id="bgChips"></div>
       <div id="bgCustom" hidden>
@@ -103,16 +103,6 @@ function mount(overlay, ctx) {
         g.fillStyle = '#20252b'; g.fillRect(0, 0, 192, 108);
         if (it) PT.loadImg(it.url).then(im => g.drawImage(BS.drawBackdrop('custom', 192, 108, 70, im), 0, 0)).catch(() => {});
         else { g.fillStyle = '#8a929b'; g.font = '600 13px sans-serif'; g.textAlign = 'center'; g.fillText('+ your photo', 96, 58); }
-        return;
-      }
-      if (k === 'real') {                     // a soft, blurred lot scene behind a sharp vehicle shape
-        const gr = g.createLinearGradient(0, 0, 0, 108); gr.addColorStop(0, '#9fb3c4'); gr.addColorStop(0.55, '#6f7c86'); gr.addColorStop(1, '#4a4f54');
-        g.fillStyle = gr; g.fillRect(0, 0, 192, 108);
-        g.filter = 'blur(3px)'; [[18, '#c0392b'], [52, '#ecf0f1'], [140, '#2c3e50'], [170, '#7f8c8d']].forEach(([x, c]) => { g.fillStyle = c; g.fillRect(x, 50, 26, 18); }); g.filter = 'none';
-        g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(96, 86, 52, 4, 0, 0, 7); g.fill();
-        g.fillStyle = '#1f3c7a'; g.beginPath(); g.roundRect ? g.roundRect(50, 56, 92, 28, 8) : g.rect(50, 56, 92, 28); g.fill();
-        g.fillRect(66, 44, 56, 16);
-        g.fillStyle = '#111'; [70, 122].forEach(x => { g.beginPath(); g.arc(x, 84, 8, 0, 7); g.fill(); });
         return;
       }
       g.drawImage(BS.drawBackdrop(k, 192, 108, k === 'mirror' ? 60 : 70, null, 30), 0, 0);
