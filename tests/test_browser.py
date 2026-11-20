@@ -277,6 +277,37 @@ def run(base=None):
         ok("stitcher: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
+        # guided panorama capture: turning the (fake) phone onto each dot takes the photos by itself, then a 2:1 picture comes out
+        ctx = browser.new_context(viewport={"width": 420, "height": 860}, has_touch=True, is_mobile=True)
+        pg = ctx.new_page()
+        pg.add_init_script(FAKE_CAMERA)
+        probe = Probe(pg, host)
+        pg.goto(car_url, wait_until="networkidle")
+        pg.evaluate("""async () => { for (const u of ['/pano-stitch.js', '/pano-capture.js']) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
+        pg.evaluate("""(() => { window.__done = null; window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024, onDone: async (f, info) => { const b = await createImageBitmap(f); window.__done = { type: f.type, size: f.size, w: b.width, h: b.height, cover: info.coverage }; } }); })()""")
+        pg.click(".pc-root [data-a=start]")
+        pg.wait_for_function("!document.querySelector('.pc-intro') || document.querySelector('.pc-intro').hidden", timeout=8000)
+        r = pg.evaluate("""(async () => {
+          const sleep = ms => new Promise(r => setTimeout(r, ms)), send = (a, b) => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: a, beta: b, gamma: 0, absolute: false }));
+          for (let k = 0; k < 6; k++) { send(0, 90); await sleep(60); }          // start facing "north"
+          const t = __api.targets(), first = __api.state().total; let shots = 0;
+          for (const g of t) { for (let k = 0; k < 14; k++) { send((360 - g.yaw) % 360, 90 + g.pitch); await sleep(50); } shots = __api.shots(); }
+          await sleep(700);
+          return { total: first, shots, wide: __api.state().wide };
+        })()""")
+        ok("pano capture: the 0.5x lens is picked when the phone has one", r["wide"] is True, str(r))
+        ok("pano capture: photos are taken by themselves on each dot", r["shots"] >= r["total"] - 1, f"{r['shots']} of {r['total']}")
+        pg.wait_for_selector(".pc-review:not([hidden])", timeout=20000)
+        cov = pg.inner_text(".pc-cov")
+        ok("pano capture: the review shows how much is covered", "covered" in cov, cov)
+        pg.click(".pc-root [data-a=use]")
+        pg.wait_for_function("window.__done", timeout=30000)
+        d = pg.evaluate("""(async () => { const o = window.__done; return o; })()""")
+        ok("pano capture: the finished picture is a JPEG, exactly 2:1, with most of the sphere covered", d["type"] == "image/jpeg" and d["w"] == 2 * d["h"] and d["cover"] > 0.9, str(d))
+        ok("pano capture: the capture screen closes when done", pg.evaluate("!document.querySelector('.pc-root')"))
+        ok("pano capture: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
         # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight
         ctx = browser.new_context(viewport={"width": 1280, "height": 800})
         pg = ctx.new_page()
