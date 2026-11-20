@@ -869,7 +869,40 @@ function composite(frame, mCan, backdrop, styleKey, carBottomPx, table, angle, p
 /* ---------------- whole-spin job ----------------
    urls: the vehicle's exterior frames (as stored). Returns per-frame { plain, enh } JPEG blobs
    through onFrame(i, blobs) so the caller can upload as it goes. */
-async function applyBackground({ urls, style, customUrl, onStatus, onFrame, signal, previewEl, segmenter, quality }) {
+/* ---------- wide-lens (0.5x) straightening ----------
+   Photos from a phone's ultra-wide lens bow outward: straight edges curve near the picture's sides
+   (the barrel look). This undoes that before anything else happens to the frame, so the cut-out,
+   the floor line and the backdrop all work on a straight picture. Radius r (0 at the centre, 1 at a
+   corner) is sampled from r * (1 - k * r^2) of the original. Centre unchanged; the sides stretch
+   outward a little, and no empty edges appear. */
+const STRAIGHTEN = { off: 0, light: 0.06, medium: 0.12, strong: 0.2 };
+function straightenLens(src, k) {
+  k = typeof k === 'string' ? (STRAIGHTEN[k] || 0) : (+k || 0);
+  if (!(k > 0)) return src;
+  const W = src.width, H = src.height;
+  const sg = src.getContext('2d'), inD = sg.getImageData(0, 0, W, H).data;
+  const out = mkCanvas(W, H), og = out.getContext('2d'), o = og.createImageData(W, H), od = o.data;
+  const cx = (W - 1) / 2, cy = (H - 1) / 2, R = Math.hypot(cx, cy);
+  for (let y = 0; y < H; y++) {
+    const dy = y - cy;
+    for (let x = 0; x < W; x++) {
+      const dx = x - cx, r = Math.hypot(dx, dy) / R, f = 1 - k * r * r;
+      const sx = cx + dx * f, sy = cy + dy * f;
+      const x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0;
+      const x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1);
+      const a = (y0 * W + x0) * 4, b = (y0 * W + x1) * 4, c = (y1 * W + x0) * 4, d = (y1 * W + x1) * 4, i = (y * W + x) * 4;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      od[i] = inD[a] * w00 + inD[b] * w10 + inD[c] * w01 + inD[d] * w11;
+      od[i + 1] = inD[a + 1] * w00 + inD[b + 1] * w10 + inD[c + 1] * w01 + inD[d + 1] * w11;
+      od[i + 2] = inD[a + 2] * w00 + inD[b + 2] * w10 + inD[c + 2] * w01 + inD[d + 2] * w11;
+      od[i + 3] = 255;
+    }
+  }
+  og.putImageData(o, 0, 0);
+  return out;
+}
+
+async function applyBackground({ urls, style, customUrl, onStatus, onFrame, signal, previewEl, segmenter, quality, straighten }) {
   const key = quality === 'hq' ? 'hq' : 'std';
   const status = (txt, frac) => onStatus && onStatus(txt, frac);
   const stopIf = () => { if (signal && signal.aborted) throw new Error('Cancelled'); };
@@ -878,7 +911,8 @@ async function applyBackground({ urls, style, customUrl, onStatus, onFrame, sign
   const frameAt = async i => {
     let im;
     try { im = await PT.loadImg(urls[i]); } catch (e) { throw new Error('Photo ' + (i + 1) + ' could not be loaded. Try again in a moment.'); }
-    return toCanvas(im, true).c;
+    const c = toCanvas(im, true).c;
+    return straighten ? straightenLens(c, straighten) : c;      // optional: undo the 0.5x lens's bowed edges first
   };
 
   let customImg = null;
@@ -953,5 +987,5 @@ async function applyBackground({ urls, style, customUrl, onStatus, onFrame, sign
   status(layout && layout.cutOff ? `Done. In ${layout.cutOff} of ${urls.length} photos part of the vehicle runs off the edge of the picture, so it looks cut off there. Record the walk-around from further back (about 3 m) so the whole vehicle stays in view.` : 'Done', 1);
 }
 
-global.BgStudio = { STYLES, drawBackdrop, drawTurntable, drawMirrorTable, turntableLayout, sceneRows, cameraBob, composite, cleanMask, maskCanvas, applyBackground, loadModel };
+global.BgStudio = { STYLES, drawBackdrop, drawTurntable, drawMirrorTable, turntableLayout, sceneRows, cameraBob, composite, cleanMask, maskCanvas, applyBackground, loadModel, straightenLens, STRAIGHTEN };
 })(window);

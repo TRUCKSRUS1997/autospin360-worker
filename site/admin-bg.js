@@ -65,6 +65,7 @@ function mount(overlay, ctx) {
       </div>
       <label class="bg-hq" id="bgBgRow" hidden><input type="checkbox" id="bgBg" checked><span>Do it in the background<small>You can close the app once it starts — the new spin goes live by itself when it’s done (usually 10–20 minutes). Works from a phone too.</small></span></label>
       <label class="bg-hq"><input type="checkbox" id="bgHq"><span>High-quality cut-out (beta)<small>Better at roofs and windows that reflect the sky. Bigger first download (about 220&nbsp;MB) and slower.</small></span></label>
+      <label class="bg-hq"><span style="flex:1">Straighten wide-lens photos<small>For photos taken on the 0.5&times; lens: undoes the curved edges before the new background goes on. Runs on this device, so keep the app open (not available as a background job). Try Light first.</small></span><select id="bgStraight" style="margin-left:8px"><option value="off">Off</option><option value="light">Light</option><option value="medium">Medium</option><option value="strong">Strong</option></select></label>
       <div class="bg-row">
         <button type="button" class="btn primary" id="bgApply">Apply to spin</button>
         <button type="button" class="btn" id="bgStop" hidden>Stop</button>
@@ -77,6 +78,8 @@ function mount(overlay, ctx) {
   const $ = s => sec.querySelector(s);
   try { $('#bgHq').checked = localStorage.getItem('as360-bg-hq') === '1'; } catch (e) {}
   $('#bgHq').addEventListener('change', () => { try { localStorage.setItem('as360-bg-hq', $('#bgHq').checked ? '1' : '0'); } catch (e) {} });
+  try { const v = localStorage.getItem('as360-bg-straight'); if (['light', 'medium', 'strong'].includes(v)) $('#bgStraight').value = v; } catch (e) {}
+  $('#bgStraight').addEventListener('change', () => { try { localStorage.setItem('as360-bg-straight', $('#bgStraight').value); } catch (e) {} });
   try { if (localStorage.getItem('as360-bg-bg') === '0') $('#bgBg').checked = false; } catch (e) {}
   $('#bgBg').addEventListener('change', () => { try { localStorage.setItem('as360-bg-bg', $('#bgBg').checked ? '1' : '0'); } catch (e) {} });
 
@@ -236,7 +239,7 @@ function mount(overlay, ctx) {
       return renderState();
     }
     if (urls.length < 2) { ctx.toast('Record the exterior walk-around first.'); return; }
-    if (workerReady && $('#bgBg').checked) return startRemote();
+    if (workerReady && $('#bgBg').checked && $('#bgStraight').value === 'off') return startRemote();     // straightening only runs on this device
 
     busy = new AbortController();
     const made = [], map = {};
@@ -249,7 +252,7 @@ function mount(overlay, ctx) {
       // make sure the vehicle itself is saved first, so nothing can be lost if this is interrupted
       if (ctx.ensureSaved) { setProg('Saving the vehicle first…', 0); await ctx.ensureSaved(); }
       await BS.applyBackground({
-        urls, style: pick, customUrl, signal: busy.signal, previewEl: $('#bgPrev'), quality: $('#bgHq').checked ? 'hq' : 'std',
+        urls, style: pick, customUrl, signal: busy.signal, previewEl: $('#bgPrev'), quality: $('#bgHq').checked ? 'hq' : 'std', straighten: $('#bgStraight').value === 'off' ? 0 : $('#bgStraight').value,
         onStatus: setProg,
         onFrame: async (i, b) => {
           const plain = await ctx.uploadBlob(ctx.vehicleId, 'exterior', b.plain); made.push(plain);

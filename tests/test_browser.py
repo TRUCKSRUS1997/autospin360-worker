@@ -204,6 +204,27 @@ def run(base=None):
             ok("capture guide: switching back to 1x relaxes the coaching", "Aiming down" not in message())
         ok("capture guide: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
+
+        # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        pg = ctx.new_page()
+        probe = Probe(pg, host)
+        pg.goto(base + "/admin.html", wait_until="networkidle")
+        r = pg.evaluate("""(() => {
+          const W = 800, H = 450, k = 0.12, cx = (W - 1) / 2, cy = (H - 1) / 2, R = Math.hypot(cx, cy), y0 = 60;
+          const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+          g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.fillStyle = '#fff';
+          for (let x = 0; x < W; x += 0.25) { const dx = x - cx, dy = y0 - cy, r = Math.hypot(dx, dy) / R, f = 1 - k * r * r; g.fillRect(cx + dx * f - 1, cy + dy * f - 1, 2, 2); }
+          const bow = cv => { const d = cv.getContext('2d').getImageData(0, 0, W, H).data; let lo = 1e9, hi = -1e9;
+            for (let x = 30; x < W - 30; x += 10) { let s = 0, n = 0; for (let y = 0; y < cy; y++) if (d[(y * W + x) * 4] > 128) { s += y; n++; } if (n) { const m = s / n; lo = Math.min(lo, m); hi = Math.max(hi, m); } }
+            return hi - lo; };
+          const fixed = BgStudio.straightenLens(c, k);
+          return { before: bow(c), after: bow(fixed), same: BgStudio.straightenLens(c, 0) === c, size: [fixed.width, fixed.height] };
+        })()""")
+        ok("lens straightening: a bowed line comes out straight", r["before"] > 8 and r["after"] < 2.5, f"bow before {r['before']:.1f}px, after {r['after']:.1f}px")
+        ok("lens straightening: off leaves the picture untouched, same size when on", r["same"] and r["size"] == [800, 450], str(r))
+        ok("lens straightening: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
         browser.close()
     if srv:
         srv.stop()
