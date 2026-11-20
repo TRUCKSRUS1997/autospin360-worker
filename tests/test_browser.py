@@ -239,6 +239,44 @@ def run(base=None):
         ok("gallery: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
+        # interior panorama stitcher: photos laid onto a sphere from their pointing directions must reproduce a known scene
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        pg = ctx.new_page()
+        probe = Probe(pg, host)
+        pg.goto(car_url, wait_until="networkidle")
+        pg.evaluate("""async () => { await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/pano-stitch.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
+        r = pg.evaluate("""(() => {
+          const S = AS360Stitch, D = Math.PI / 180;
+          const scene = (lon, lat) => [128 + 100 * Math.sin(2 * lon + lat), 128 + 100 * Math.cos(3 * lat - lon), 128 + 100 * Math.sin(lon * 1 - 2 * lat)];
+          const rotYP = (yaw, pit) => { const cy = Math.cos(yaw * D), sy = Math.sin(yaw * D), cp = Math.cos(pit * D), sp = Math.sin(pit * D);
+            const f = [cp * sy, sp, cp * cy], r = [cy, 0, -sy], u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+            return [[r[0], u[0], f[0]], [r[1], u[1], f[1]], [r[2], u[2], f[2]]]; };
+          const render = (R, w, h, hfov) => { const f = (w / 2) / Math.tan(hfov * D / 2), d = new Uint8ClampedArray(w * h * 4);
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let cx = (x - (w - 1) / 2) / f, cy = ((h - 1) / 2 - y) / f, cz = 1; const n = Math.hypot(cx, cy, cz); cx /= n; cy /= n; cz /= n;
+              const wx = R[0][0] * cx + R[0][1] * cy + R[0][2] * cz, wy = R[1][0] * cx + R[1][1] * cy + R[1][2] * cz, wz = R[2][0] * cx + R[2][1] * cy + R[2][2] * cz;
+              const c = scene(Math.atan2(wx, wz), Math.asin(Math.max(-1, Math.min(1, wy)))), o = (y * w + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; }
+            return { data: d, w, h, R, hfov }; };
+          const rings = [[0, 8], [50, 6], [-50, 6]], shots = [];
+          rings.forEach(([pit, cnt]) => { for (let k = 0; k < cnt; k++) shots.push(render(rotYP(k * 360 / cnt + (pit ? 15 : 0), pit), 240, 180, 100)); });
+          shots.push(render(rotYP(0, 90), 240, 180, 100)); shots.push(render(rotYP(0, -90), 240, 180, 100));
+          const res = S.stitch(shots, { width: 512, gain: false });
+          let err = 0, cnt = 0;
+          for (let y = 0; y < res.height; y += 2) for (let x = 0; x < res.width; x += 2) { const o = (y * res.width + x) * 4; if (!res.data[o + 3]) continue;
+            const c = scene(((x + 0.5) / res.width - 0.5) * 2 * Math.PI, (0.5 - (y + 0.5) / res.height) * Math.PI);
+            err += (Math.abs(res.data[o] - c[0]) + Math.abs(res.data[o + 1] - c[1]) + Math.abs(res.data[o + 2] - c[2])) / 3; cnt++; }
+          const few = S.stitch(shots.slice(0, 4), { width: 256, gain: false });
+          const f = (a, b, c, sa) => { const R = S.rotationFromEuler(a, b, c, sa || 0); return [R[0][2], R[1][2], R[2][2]].map(v => +v.toFixed(3)); };
+          const R0 = S.rotationFromEuler(37, 71, -12, 0); let ortho = 0; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let d = 0; for (let k = 0; k < 3; k++) d += R0[k][i] * R0[k][j]; ortho = Math.max(ortho, Math.abs(d - (i === j ? 1 : 0))); }
+          return { coverage: res.coverage, err: err / cnt, fewCov: few.coverage, fewHoles: few.holes.length, up: f(0, 90, 0), flat: f(0, 0, 0), ortho };
+        })()""")
+        ok("stitcher: 22 photos cover the whole sphere", r["coverage"] > 0.97, f"{r['coverage']:.3f}")
+        ok("stitcher: the result matches the real scene (average error under 6 of 255)", r["err"] < 6, f"{r['err']:.2f}")
+        ok("stitcher: too few photos report a low coverage and list what is missing", r["fewCov"] < 0.5 and r["fewHoles"] > 0, f"{r['fewCov']:.2f}, {r['fewHoles']} empty areas")
+        ok("stitcher: phone upright points at the horizon, flat points at the floor", r["up"] == [0, 0, 1] and r["flat"] == [0, -1, 0], f"{r['up']} {r['flat']}")
+        ok("stitcher: sensor rotation is a proper rotation", r["ortho"] < 1e-9, str(r["ortho"]))
+        ok("stitcher: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
         # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight
         ctx = browser.new_context(viewport={"width": 1280, "height": 800})
         pg = ctx.new_page()
