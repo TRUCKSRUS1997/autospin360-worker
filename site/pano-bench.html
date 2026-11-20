@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Panorama speed test</title>
+<style>
+body{margin:0;padding:20px;font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:#0e1013;color:#e8ecf0;max-width:640px;margin:auto}
+h1{font-size:22px} button{border:0;border-radius:12px;padding:12px 18px;font:inherit;font-weight:600;background:#2f9e5b;color:#fff;margin:6px 6px 6px 0}
+button.sec{background:#2a3038} pre{background:#161a1f;padding:12px;border-radius:10px;white-space:pre-wrap;word-break:break-word;font-size:12.5px}
+.warn{background:#3a2c10;border-left:4px solid #e0a030;padding:10px 12px;border-radius:8px}
+</style></head><body>
+<h1>Panorama speed test</h1>
+<p>This measures how fast <b>this phone</b> can build an interior 360° panorama at different photo and picture sizes, using made-up photos. It does not use the camera and uploads nothing. It takes a minute or two. Keep this page open and the screen on.</p>
+<p class="warn">The test starts small and gets bigger. If the browser closes or reloads part-way, open this page again: it will tell you which size was too much for the phone.</p>
+<div id="crash" class="warn" hidden></div>
+<button id="go">Start the test</button><button id="copy" class="sec" hidden>Copy results</button>
+<pre id="out">Not started.</pre>
+<script src="/pano-stitch.js"></script>
+<script>
+(function () {
+  const S = AS360Stitch, out = document.getElementById('out'), KEY = 'as360-bench', quick = /[?&]quick=1/.test(location.search);
+  const info = { ua: navigator.userAgent, memoryGB: navigator.deviceMemory || 'not reported', cores: navigator.hardwareConcurrency || '?', dpr: window.devicePixelRatio, screen: screen.width + 'x' + screen.height, secure: window.isSecureContext };
+  const res = JSON.parse(localStorage.getItem(KEY + '-results') || '[]');
+  try { const pend = localStorage.getItem(KEY + '-pending'); if (pend) { const el = document.getElementById('crash'); el.hidden = false; el.textContent = 'The last test (' + pend + ') did not finish: the browser stopped it. That size is too much for this phone.'; res.push({ step: pend, ok: false, note: 'browser stopped or reloaded' }); localStorage.setItem(KEY + '-results', JSON.stringify(res)); localStorage.removeItem(KEY + '-pending'); } } catch (e) {}
+  const show = () => { out.textContent = JSON.stringify(info, null, 1) + '\n\n' + res.map(r => r.ok ? `${r.step}: ${r.seconds}s${r.heapMB ? ', heap ' + r.heapMB + ' MB' : ''}` : `${r.step}: FAILED ${r.note || ''}`).join('\n'); };
+  show();
+  // made-up photo: filled on demand, so decode-sized memory is used and released one photo at a time, like the real stitcher
+  const fakeShots = (long, n) => { const w = long, h = Math.round(long * 0.75), shots = [], tg = [[0, 8, 0], [50, 6, 15], [-50, 6, 15]]; let i = 0;
+    tg.forEach(([p, c, off]) => { for (let k = 0; k < c; k++) shots.push([off + k * 360 / c, p]); }); shots.push([0, 90]); shots.push([0, -90]);
+    const f = S.fovFor(w, h, 100);
+    return shots.slice(0, n || 99).map(([yaw, pit]) => ({ w, h, hfov: f.hfov, R: S.rotationFromYawPitch(yaw, pit), load: async () => { const d = new Uint8ClampedArray(w * h * 4); for (let q = 0; q < d.length; q += 4) { d[q] = (q >> 6) & 255; d[q + 1] = (q >> 8) & 255; d[q + 2] = 128; d[q + 3] = 255; } return { data: d, w, h }; } })); };
+  const steps = quick ? [[640, 512]] : [[1280, 1024], [1920, 1024], [1920, 2048], [2560, 2048], [2560, 3072], [3200, 3072], [3200, 4096], [4032, 4096]];
+  async function run() {
+    document.getElementById('go').disabled = true; res.length = 0; localStorage.setItem(KEY + '-results', '[]');
+    for (const [long, W] of steps) {
+      const name = `photos ${long}px, picture ${W}px`; out.textContent += '\nRunning ' + name + ' …';
+      localStorage.setItem(KEY + '-pending', name); await new Promise(r => setTimeout(r, 80));
+      const t0 = performance.now();
+      try { const r = await S.stitchAsync(fakeShots(long), { width: W }); r.data = null; const sec = +((performance.now() - t0) / 1000).toFixed(1), heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null; res.push({ step: name, ok: true, seconds: sec, heapMB: heap }); }
+      catch (e) { res.push({ step: name, ok: false, note: String(e.message || e) }); }
+      localStorage.removeItem(KEY + '-pending'); localStorage.setItem(KEY + '-results', JSON.stringify(res)); show();
+      if (res[res.length - 1].ok === false || res[res.length - 1].seconds > 90) { out.textContent += '\nStopped here (too slow or failed).'; break; }
+    }
+    out.textContent += '\nDone. Tap "Copy results" and send them over.'; document.getElementById('copy').hidden = false; document.getElementById('go').disabled = false; window.__benchDone = true;
+  }
+  document.getElementById('go').onclick = run;
+  document.getElementById('copy').onclick = async () => { try { await navigator.clipboard.writeText(out.textContent); document.getElementById('copy').textContent = 'Copied'; } catch (e) { document.getElementById('copy').textContent = 'Select the text above to copy'; } };
+  window.__bench = { run };
+})();
+</script></body></html>
