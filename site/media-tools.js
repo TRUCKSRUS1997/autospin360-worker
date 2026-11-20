@@ -72,9 +72,14 @@ async function uploadVideo(file, vehicleId) {
   return { url: j.url, poster, type, bytes: file.size, seconds: p ? p.seconds : 0, existed: j.existed };
 }
 /* Cabin panorama: one WebP, up to 4096px wide, and only if the photo really is 2:1. */
-async function uploadPano(file, vehicleId) {
+const PANO_KEEP_MAX = 11 * 1024 * 1024;     // the server accepts images up to 12 MB; stay under it
+/* opts.keepFile: the file came from the capture screen (a JPEG written once, no metadata). It is uploaded exactly as it is
+   instead of being decoded and written again as WebP, so there is no second lossy pass. Anything else (a file the person
+   picked, a wider picture, a file over the limit, a non-JPEG) takes the original path below, unchanged. */
+async function uploadPano(file, vehicleId, opts) {
   const bmp = await decode(file), r = bmp.width / bmp.height;
   if (r < 1.9 || r > 2.1) { if (bmp.close) bmp.close(); throw new Error('That photo is ' + bmp.width + '×' + bmp.height + ', not 2:1. A 360° panorama must be exactly twice as wide as it is tall.'); }
+  if (opts && opts.keepFile && file.type === 'image/jpeg' && bmp.width <= 4096 && file.size <= PANO_KEEP_MAX) { if (bmp.close) bmp.close(); const j = await upload(file, vehicleId); return { url: j.url, bytes: file.size, existed: j.existed, keptAsIs: true }; }
   const k = Math.min(1, 4096 / bmp.width), cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
   cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); if (bmp.close) bmp.close();
   const b = await toBlob(cv, pickFormat(), 0.82); const j = await upload(b, vehicleId); return { url: j.url, bytes: b.size, existed: j.existed };

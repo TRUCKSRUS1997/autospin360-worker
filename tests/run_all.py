@@ -15,6 +15,7 @@ sys.path.insert(0, HERE)
 import test_archive
 import test_archive_capture
 import test_browser
+import test_upload_pano
 import test_preview_guards
 import test_static
 
@@ -32,6 +33,7 @@ def main():
     results += r
     results += test_archive.run(base)
     results += test_archive_capture.run(base)
+    results += test_upload_pano.run(base)
     failed = 0
     for name, passed, detail in results:
         print(("PASS  " if passed else "FAIL  ") + name + ("" if passed or not detail else f"\n        {detail}"))

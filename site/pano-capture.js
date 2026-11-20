@@ -14,6 +14,7 @@ const AIM_TOL = 7, STEADY_DPS = 14, HOLD_MS = 350;
 const LONG_FOV = { wide: 100, normal: 69 };      // degrees across the LONG side of a photo; estimates, fitted automatically from the photos
 const LS_KEY = 'as360-pano-lens';
 const ARCH_Q = 0.95;                         // quality of the kept original (one encode, never re-encoded)
+const FINAL_Q = 0.95, FINAL_MAX_BYTES = 10.5 * 1048576;   // the stitched panorama: one encode; stays under the server's 12 MB image limit
 const MAX_CANVAS_PX = 16777216;              // largest picture one canvas can hold on iPhones (4096 x 4096)
 const LS_LOSSLESS = 'as360-pano-lossless', LS_NOARCH = 'as360-pano-noarchive';
 const MB = 1048576;
@@ -482,8 +483,10 @@ function open(opts) {
         busy('Saving the panorama…', `${w} × ${w / 2}`, 0); const t0 = performance.now();
         const res = await S.stitchAsync(st.shotsMeta, { width: w, gains: st.gains, fovScale: st.refined.fovScale, onProgress: f => busy('Saving the panorama…', `${w} × ${w / 2}`, f * 0.9), cancel: () => st.cancelBuild });
         S.fillSmallGaps(res); const cv = S.toCanvas(res); res.data = null;
-        const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92)); if (!blob) throw new Error('the picture could not be encoded');
-        st.diag.timings.finalMs = Math.round(performance.now() - t0); st.diag.final = { width: w, bytes: blob.size };
+        let blob = null, quality = 0;
+        for (const q of [opts.finalQuality || FINAL_Q, 0.9, 0.85, 0.8]) { quality = q; blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q)); if (!blob || blob.size <= FINAL_MAX_BYTES) break; }    // each try is a fresh single encode of the same pixels, never a re-compression of a JPEG
+        if (!blob) throw new Error('the picture could not be encoded');
+        st.diag.timings.finalMs = Math.round(performance.now() - t0); st.diag.final = { width: w, bytes: blob.size, quality };
         const file = new File([blob], 'interior-360.jpg', { type: 'image/jpeg' }), info = { coverage: st.coverage.covered, shots: st.shots.length, width: w, diag: st.diag, blocking: st.coverage.blocking, alignment: S.alignmentStatus(st.refined).status };
         info.archive = await archiveInfo(blob, w, info);
         close(false); if (opts.onDone) opts.onDone(file, info);

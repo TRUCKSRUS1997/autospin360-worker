@@ -84,6 +84,7 @@ def run(base=None):
         ok(T + "each original is stored at the camera's delivered size (not the smaller working size) and verifies", all(f"{w}x{h}" == v and t == "image/jpeg" for w, h, t, v in chk), str(chk[:2]))
         ok(T + "the manifest records what was asked for and what the camera delivered", m["camera"]["delivered"] == "640x360" and "4032" in m["camera"]["requested"], str(m["camera"]))
         ok(T + "the session is marked finished and the derived panorama (size, SHA-256) is recorded; originals are separate from it", m["status"] == "finished" and m["derived"] and len(m["derived"][0]["sha256"]) == 64 and m["fallbacks"] == [], str(m["derived"])[:200])
+        ok(T + "the stitched panorama is one JPEG encode at quality 0.95, recorded in the diagnostics (within the 10.5 MB guard)", d["info"]["diag"]["final"]["quality"] == 0.95 and d["size"] < 10.5 * 1048576, str(d["info"]["diag"]["final"]))
         ok(T + "no script errors", not errs, "; ".join(errs))
 
         # ================= G. save a copy: prepare, hand over, check the saved file
