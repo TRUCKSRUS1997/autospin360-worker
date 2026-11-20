@@ -218,6 +218,27 @@ def run(base=None):
         ok("viewer polish: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
+        # gallery: the photo viewer keeps keyboard focus inside, steps through photos, and closes cleanly
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        pg = ctx.new_page()
+        probe = Probe(pg, host)
+        pg.goto(car_url, wait_until="networkidle")
+        pg.evaluate("""async () => { if (!window.AS360Tour) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/tour.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
+        pg.evaluate("""(() => { const px = c => { const k = document.createElement('canvas'); k.width = 40; k.height = 30; const g = k.getContext('2d'); g.fillStyle = c; g.fillRect(0, 0, 40, 30); return k.toDataURL(); };
+          window.__lb = AS360Tour.lightbox([{ m: px('#c33'), cap: 'one' }, { m: px('#3c3'), cap: 'two' }, { m: px('#33c'), cap: 'three' }], 0, 'Test'); })()""")
+        for _ in range(25):
+            pg.keyboard.press("Tab")
+        inside = pg.evaluate("document.querySelector('.tlb').contains(document.activeElement)")
+        ok("gallery: Tab never leaves the photo viewer", inside)
+        pg.keyboard.press("ArrowRight"); pg.keyboard.press("ArrowRight")
+        ok("gallery: arrow keys step through photos", pg.evaluate("window.__lb.state().i") == 2)
+        pg.keyboard.press("ArrowRight")
+        ok("gallery: stepping past the last photo wraps to the first", pg.evaluate("window.__lb.state().i") == 0)
+        pg.keyboard.press("Escape")
+        ok("gallery: Escape closes the viewer", pg.evaluate("!document.querySelector('.tlb')"))
+        ok("gallery: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
         # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight
         ctx = browser.new_context(viewport={"width": 1280, "height": 800})
         pg = ctx.new_page()
