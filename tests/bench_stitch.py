@@ -1,6 +1,7 @@
 """Desktop benchmark of the panorama stitcher.
 
 *** SIMULATED: headless Chromium on THIS machine with made-up photos. It says nothing about an iPhone's speed or memory. ***
+It measures synthetic-image stitching only: NOT camera capture, JPEG encoding/decoding of real photos, or final image quality.
 The real-phone version is the page /pano-bench.html (open it on the iPhone). This script shows how time and memory scale, and
 checks that memory does not grow with the number or size of photos the way the first version's did.
 
@@ -38,7 +39,8 @@ def main():
             b.close()
     finally:
         srv.stop()
-    print("SIMULATED DESKTOP RESULTS (headless Chromium, made-up photos): NOT iPhone numbers\n")
+    print("SIMULATED DESKTOP RESULTS (headless Chromium, made-up photos): NOT iPhone numbers.")
+    print("Measures synthetic-image stitching only, not camera capture, JPEG encoding/decoding or final image quality.\n")
     print(f"{'photos':>8} {'picture':>8} {'seconds':>8} {'peak JS heap MB':>16} {'photos open at once':>20}")
     for r in rows:
         print(f"{r['photo_px']:>8} {r['picture_px']:>8} {r['seconds']:>8} {r['peakHeapMB']:>16} {r['peakOpenPhotos']:>20}")

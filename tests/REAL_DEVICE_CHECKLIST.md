@@ -29,3 +29,8 @@ an iPhone's lens, sensors, speed or memory. Please run the items below on the pr
 
 ## E. Existing features still work (regression)
 Exterior spin viewer, inventory page, the old "Add panorama file" button, photo gallery, videos, background studio.
+
+## Added after review (alignment and speed-test limits)
+- On a real cabin capture, the review screen should say alignment is good or fair. If it says "NOT verified" or "poor", note the car and light conditions: that is the safety warning working, and the capture should be retaken with more overlap.
+- The "% covered" figure is now calculated after alignment, so it can be lower than before; compare it with the picture itself.
+- The speed test (/pano-bench.html) measures made-up-image stitching only, not camera capture, JPEG encoding or final image quality. Real captures take longer.

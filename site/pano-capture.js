@@ -105,7 +105,7 @@ function open(opts) {
   <div class="pc-card pc-intro"><h2>Interior 360°</h2><p>Sit where the viewpoint should be, at head height. Hold the phone upright with your arms in close, and turn on the spot. The closer the phone stays to one point, the cleaner the seams.</p><p class="pc-intro-p">Aim at each dot. Hold still for a moment and the photo is taken by itself.</p><button type="button" class="pc-btn pri" data-a="start">Start</button><button type="button" class="pc-btn" data-a="startmanual">No motion sensors? Use manual mode</button><button type="button" class="pc-btn" data-a="close">Cancel</button></div>
   <div class="pc-card pc-lens" hidden><h2>Choose the camera</h2><p>The 0.5× ultra-wide lens needs far fewer photos and gives a cleaner result. Pick it here if it was not found automatically.</p><div class="pc-list"></div><div style="display:flex; gap:10px"><button type="button" class="pc-btn" data-a="lensclose">Back</button></div></div>
   <div class="pc-card pc-busy" hidden><h2 class="pc-busyt">Building the panorama…</h2><div class="pc-bar"><i></i></div><p class="pc-busys"></p><button type="button" class="pc-btn" data-a="cancelbuild">Cancel</button></div>
-  <div class="pc-card pc-review" hidden><h2>Check the panorama</h2><canvas class="pc-prev"></canvas><p class="pc-cov"></p><ul class="pc-issues"></ul><p class="pc-size" style="font-size:13px"></p><label class="pc-ack" hidden><input type="checkbox"> I understand parts are missing</label><div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center"><button type="button" class="pc-btn" data-a="retake">Start over</button><button type="button" class="pc-btn warn" data-a="more" hidden>Capture missing areas</button><button type="button" class="pc-btn pri" data-a="use">Use this panorama</button></div><details><summary>Advanced</summary><label>Lens view <input type="range" min="60" max="125" value="69" class="pc-fov"> <span class="pc-fovv"></span></label><label>Final size <select class="pc-wsel"></select></label><pre class="pc-diag"></pre><button type="button" class="pc-btn" data-a="copydiag">Copy details</button></details></div>`;
+  <div class="pc-card pc-review" hidden><h2>Check the panorama</h2><canvas class="pc-prev"></canvas><p class="pc-cov"></p><ul class="pc-issues"></ul><p class="pc-size" style="font-size:13px"></p><label class="pc-ack" hidden><input type="checkbox"> <span>I understand parts are missing</span></label><div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center"><button type="button" class="pc-btn" data-a="retake">Start over</button><button type="button" class="pc-btn warn" data-a="more" hidden>Capture missing areas</button><button type="button" class="pc-btn pri" data-a="use">Use this panorama</button></div><details><summary>Advanced</summary><label>Lens view <input type="range" min="60" max="125" value="69" class="pc-fov"> <span class="pc-fovv"></span></label><label>Final size <select class="pc-wsel"></select></label><pre class="pc-diag"></pre><button type="button" class="pc-btn" data-a="copydiag">Copy details</button></details></div>`;
   document.body.appendChild(root);
   const prevOv = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden';
   const $ = s => root.querySelector(s), video = $('video'), ov = $('canvas.pc-ov'), octx = ov.getContext('2d');
@@ -281,11 +281,13 @@ function open(opts) {
     st.shotsMeta = null; busy('Checking the photos…', '', 0.02); await tickP();
     try {
       const meta = shotMeta(); st.shotsMeta = meta;
-      st.coverage = S.analyzeCoverage(meta);
+      st.coverageSensors = S.analyzeCoverage(meta);   // before alignment (kept for the report only)
       const t0 = performance.now();
       busy('Lining up the photos…', 'Fine-tuning where each photo sits', 0.1);
       const ref = await S.refineAlignment(meta, { range: st.manual ? 10 : 3, fit: !st.fovManual, noRoll: false, onProgress: f => busy('Lining up the photos…', 'Fine-tuning where each photo sits', 0.1 + f * 0.3) });
-      st.refined = ref; st.diag.timings.alignMs = Math.round(performance.now() - t0); st.diag.alignment = { used: ref.used, cost0: ref.cost0, cost1: ref.cost1, fovScale: ref.fovScale, movedMean: ref.moved.length ? ref.moved.reduce((a, b) => a + b, 0) / ref.moved.length : 0, movedMax: Math.max(0, ...ref.moved) };
+      st.refined = ref; st.diag.timings.alignMs = Math.round(performance.now() - t0); st.diag.alignment = { used: ref.used, cost0: ref.cost0, cost1: ref.cost1, costFinal: ref.costFinal, verifiedFrac: ref.verifiedFrac, status: S.alignmentStatus(ref).status, fovScale: ref.fovScale, movedMean: ref.moved.length ? ref.moved.reduce((a, b) => a + b, 0) / ref.moved.length : 0, movedMax: Math.max(0, ...ref.moved) };
+      st.coverage = S.analyzeCoverage(meta, { fovScale: ref.fovScale });   // AFTER alignment: refined rotations and fitted lens view
+      st.diag.coverageBeforeAlignment = Math.round(st.coverageSensors.covered * 1000) / 1000;
       st.gains = S.solveGains(meta, ref.fovScale);
       if (st.cancelBuild || gen !== st.gen) return;
       const t1 = performance.now(); busy('Building a preview…', '', 0.45);
@@ -295,7 +297,6 @@ function open(opts) {
     } catch (e) { $('.pc-busy').hidden = true; st.finishing = false; if (e.message !== 'cancelled') { msg('Could not build the panorama: ' + e.message); log('finish failed', e.message); st.running = true; } else st.running = true; updateUI(); }
   }
 
-  function qualityOf(ref) { if (!ref || ref.cost1 == null) return { label: 'unknown', ok: true }; const c = ref.cost1; return c < 0.25 ? { label: 'good', ok: true } : c < 0.5 ? { label: 'fair', ok: true } : { label: 'poor', ok: false }; }
   function widthChoices() {
     const meta = st.shotsMeta, fs = st.refined ? st.refined.fovScale : 1, adj = meta.map(m => Object.assign({}, m, { hfov: 2 * Math.atan(Math.tan(m.hfov * D2R / 2) * fs) * R2D }));
     const det = S.realDetailWidth(adj, widthCap), msPerMp1024 = st.diag.timings.previewMs || 1500, predict = w => (msPerMp1024 / 1000) * Math.pow(w / 1024, 2) * 1.15;
@@ -303,19 +304,21 @@ function open(opts) {
   }
   function showReview() {
     const c = S.toCanvas(st.previewRes), p = $('.pc-prev'); p.width = c.width; p.height = c.height; p.getContext('2d').drawImage(c, 0, 0);
-    const cov = st.coverage, q = qualityOf(st.refined), list = $('.pc-issues'); list.innerHTML = '';
-    $('.pc-cov').textContent = `${Math.round(cov.covered * 100)}% of the view covered · alignment ${q.label}${st.manual ? ' (hand-placed photos)' : ''}`;
-    const items = cov.issues.slice(); if (!q.ok) items.push({ severity: 'warn', text: 'The photos do not line up well. This happens when the phone moves around a lot between photos. Keep your arms in and turn on the spot, then retake.' });
-    if (st.refined && !st.refined.used && st.manual) items.push({ severity: 'warn', text: 'The photos could not be lined up reliably. Retake with the sensors, or with more overlap.' });
+    const cov = st.coverage, al = S.alignmentStatus(st.refined), list = $('.pc-issues'); list.innerHTML = '';
+    $('.pc-cov').textContent = `${Math.round(cov.covered * 100)}% of the view covered · alignment ${al.status === 'unverified' ? 'NOT verified' : al.status}${st.manual ? ' (hand-placed photos)' : ''}`;
+    const items = cov.issues.slice();
+    if (al.status === 'unverified') items.unshift({ severity: 'warn', text: `Alignment could not be checked: ${al.reason}. The panorama relies on the phone's sensors alone, so parts may be misplaced or show seams.` + (st.manual ? ' Hand-placed photos need real overlap to line up.' : '') + ' Retake with more overlap (more photos, the 0.5× lens, steady turns), in a well-lit cabin with some detail in view, or use a panorama made another way.' });
+    else if (al.status === 'poor') items.unshift({ severity: 'warn', text: `Alignment is poor: ${al.reason}. This usually means the phone moved around between photos. Keep your arms in, turn on the spot, and retake.` });
     items.forEach(i => { const li = document.createElement('li'); li.className = i.severity; li.textContent = i.text; list.appendChild(li); });
-    const blocking = cov.blocking, gaps = cov.issues.filter(i => i.kind === 'gap' && i.severity !== 'note');
-    $('[data-a=more]').hidden = !gaps.length; $('.pc-ack').hidden = !blocking; $('.pc-ack input').checked = false;
-    const useBtn = $('[data-a=use]'); useBtn.textContent = blocking ? 'Save anyway' : 'Use this panorama'; useBtn.disabled = blocking; useBtn.className = 'pc-btn ' + (blocking ? 'warn' : 'pri');
+    const gated = cov.blocking || !al.ok, gaps = cov.issues.filter(i => i.kind === 'gap' && i.severity !== 'note');
+    $('[data-a=more]').hidden = !gaps.length; $('.pc-ack').hidden = !gated; $('.pc-ack input').checked = false;
+    $('.pc-ack span').textContent = cov.blocking && !al.ok ? 'I understand parts are missing and the alignment is not reliable' : cov.blocking ? 'I understand parts are missing' : 'I understand the alignment is not reliable';
+    const useBtn = $('[data-a=use]'); useBtn.textContent = gated ? 'Save anyway' : 'Use this panorama'; useBtn.disabled = gated; useBtn.className = 'pc-btn ' + (gated ? 'warn' : 'pri');
     const wc = widthChoices(); st.wc = wc; const sel = $('.pc-wsel'); sel.innerHTML = '';
     [4096, 3072, 2048, 1536, 1024].filter(w => w <= Math.min(wc.det.width, widthCap) || w === wc.pick.width).forEach(w => { const o = document.createElement('option'); o.value = w; o.textContent = `${w} × ${w / 2}` + (w === wc.pick.width ? ' (recommended)' : ''); if (w === wc.pick.width) o.selected = true; sel.appendChild(o); });
     $('.pc-size').textContent = `Final picture ${wc.pick.width} × ${wc.pick.width / 2}. Your photos hold real detail up to about ${wc.det.supports} pixels wide` + (wc.pick.limitedBySpeed ? ', but this phone would take too long for more.' : '.') + ` Estimated time ${Math.max(1, Math.round(wc.pick.predicted))} s.`;
     $('.pc-fovv').textContent = Math.round(st.fov * (st.refined ? st.refined.fovScale : 1)) + '°';
-    st.diag.coverage = { covered: cov.covered, overlap2: cov.overlap2, thin: cov.thin, issues: cov.issues.map(i => i.text) };
+    st.diag.coverage = { afterAlignment: true, covered: cov.covered, overlap2: cov.overlap2, thin: cov.thin, issues: cov.issues.map(i => i.text) };
     st.diag.shots = { n: st.shots.length, mpix: +mpix().toFixed(1), blobMB: +(st.shots.reduce((a, s) => a + s.blob.size, 0) / 1048576).toFixed(1), manual: st.manual, wide: st.wide, fovLong: st.fov, sensorHz: st.sensorT0 ? Math.round(st.sensorN / Math.max(0.5, (performance.now() - st.sensorT0) / 1000)) : 0 };
     $('.pc-diag').textContent = JSON.stringify(st.diag, null, 1);
   }
@@ -333,7 +336,7 @@ function open(opts) {
         S.fillSmallGaps(res); const cv = S.toCanvas(res); res.data = null;
         const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92)); if (!blob) throw new Error('the picture could not be encoded');
         st.diag.timings.finalMs = Math.round(performance.now() - t0); st.diag.final = { width: w, bytes: blob.size };
-        const file = new File([blob], 'interior-360.jpg', { type: 'image/jpeg' }), info = { coverage: st.coverage.covered, shots: st.shots.length, width: w, diag: st.diag, blocking: st.coverage.blocking };
+        const file = new File([blob], 'interior-360.jpg', { type: 'image/jpeg' }), info = { coverage: st.coverage.covered, shots: st.shots.length, width: w, diag: st.diag, blocking: st.coverage.blocking, alignment: S.alignmentStatus(st.refined).status };
         close(false); if (opts.onDone) opts.onDone(file, info); return;
       } catch (e) {
         if (e.message === 'cancelled') { $('.pc-busy').hidden = true; $('.pc-review').hidden = false; return; }

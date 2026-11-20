@@ -9,6 +9,7 @@ button.sec{background:#2a3038} pre{background:#161a1f;padding:12px;border-radius
 </style></head><body>
 <h1>Panorama speed test</h1>
 <p>This measures how fast <b>this phone</b> can build an interior 360° panorama at different photo and picture sizes, using made-up photos. It does not use the camera and uploads nothing. It takes a minute or two. Keep this page open and the screen on.</p>
+<p class="warn"><b>Limits of this test.</b> It measures <b>synthetic-image stitching speed only</b>, not the complete camera capture, JPEG encoding or decoding of real photos, or final image quality. Real captures will take longer, so treat the numbers as a best case.</p>
 <p class="warn">The test starts small and gets bigger. If the browser closes or reloads part-way, open this page again: it will tell you which size was too much for the phone.</p>
 <div id="crash" class="warn" hidden></div>
 <button id="go">Start the test</button><button id="copy" class="sec" hidden>Copy results</button>
@@ -20,7 +21,7 @@ button.sec{background:#2a3038} pre{background:#161a1f;padding:12px;border-radius
   const info = { ua: navigator.userAgent, memoryGB: navigator.deviceMemory || 'not reported', cores: navigator.hardwareConcurrency || '?', dpr: window.devicePixelRatio, screen: screen.width + 'x' + screen.height, secure: window.isSecureContext };
   const res = JSON.parse(localStorage.getItem(KEY + '-results') || '[]');
   try { const pend = localStorage.getItem(KEY + '-pending'); if (pend) { const el = document.getElementById('crash'); el.hidden = false; el.textContent = 'The last test (' + pend + ') did not finish: the browser stopped it. That size is too much for this phone.'; res.push({ step: pend, ok: false, note: 'browser stopped or reloaded' }); localStorage.setItem(KEY + '-results', JSON.stringify(res)); localStorage.removeItem(KEY + '-pending'); } } catch (e) {}
-  const show = () => { out.textContent = JSON.stringify(info, null, 1) + '\n\n' + res.map(r => r.ok ? `${r.step}: ${r.seconds}s${r.heapMB ? ', heap ' + r.heapMB + ' MB' : ''}` : `${r.step}: FAILED ${r.note || ''}`).join('\n'); };
+  const LIMIT = 'WHAT THIS MEASURES: only how fast this phone stitches made-up images into a panorama. It does NOT measure the camera capture, JPEG encoding or decoding of real photos, or the quality of a real panorama. Real captures will take longer; treat these numbers as a best case.'; const show = () => { out.textContent = LIMIT + '\n\n' + JSON.stringify(info, null, 1) + '\n\n' + res.map(r => r.ok ? `${r.step}: ${r.seconds}s${r.heapMB ? ', heap ' + r.heapMB + ' MB' : ''}` : `${r.step}: FAILED ${r.note || ''}`).join('\n'); };
   show();
   // made-up photo: filled on demand, so decode-sized memory is used and released one photo at a time, like the real stitcher
   const fakeShots = (long, n) => { const w = long, h = Math.round(long * 0.75), shots = [], tg = [[0, 8, 0], [50, 6, 15], [-50, 6, 15]]; let i = 0;

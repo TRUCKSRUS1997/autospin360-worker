@@ -262,6 +262,20 @@ def run(base=None):
         ok("[simulated] coverage: a missing sector at eye level is reported as important", any("eye level" in i["text"] and i["severity"] == "block" for i in r["noSector"]["issues"]), str([i["text"] for i in r["noSector"]["issues"]][:3]))
         ok("[simulated] coverage: small gaps right at the top and bottom warn but do not block", not r["noPoles"]["blocking"] and r["noPoles"]["issues"] and all(i["severity"] in ("note", "warn") and ("ceiling" in i["text"] or "floor" in i["text"]) for i in r["noPoles"]["issues"]), str([(i["severity"], i["text"]) for i in r["noPoles"]["issues"]]))
 
+        # --- review requirement: coverage must describe the FINAL (aligned) panorama, and unverified alignment must never read as good
+        a = R("""(async () => { const S = PT.S, full = PT.makeShots({ w: 64, h: 48 }), meta = x => x.map(s => ({ w: s.w, h: s.h, R: s.R, hfov: s.hfov, Rr: s.Rr }));
+          const first = full[0].R, flipped = PT.makeShots({ w: 64, h: 48 }).map(s => { s.Rr = first.map(r => r.slice()); return s; });   // every photo 'refined' onto the same direction: the final panorama would cover far less
+          const out = { sensors: S.analyzeCoverage(meta(full)).covered, refinedAway: S.analyzeCoverage(meta(flipped)).covered, narrow: S.analyzeCoverage(meta(full), { fovScale: 0.5 }).covered, same: S.analyzeCoverage(meta(full), { fovScale: 1 }).covered };
+          const good = await S.refineAlignment(PT.makeShots({ err: 2.5 }).map(s => Object.assign({}, s)), { range: 3, fit: true });
+          const flat = PT.makeShots({ w: 64, h: 48 }).map(s => { const d = new Uint8ClampedArray(s.data.length).fill(120); for (let i = 3; i < d.length; i += 4) d[i] = 255; return { data: d, w: s.w, h: s.h, R: s.R, hfov: s.hfov, low: S.prepLow(d, s.w, s.h) }; });
+          const un = await S.refineAlignment(flat, { range: 3, fit: true });
+          out.statusGood = S.alignmentStatus(good); out.statusFlat = S.alignmentStatus(un); out.statusNone = S.alignmentStatus(null); out.flatRef = { used: un.used, cost: un.costFinal, frac: un.verifiedFrac };
+          out.statusPoor = S.alignmentStatus({ costFinal: 0.9, verifiedFrac: 1 }); out.statusPartial = S.alignmentStatus({ costFinal: 0.1, verifiedFrac: 0.4 }); return out; })()""")
+        ok("[simulated] coverage after alignment: refined rotations and the fitted lens view are used, not the raw sensor values", a["refinedAway"] < a["sensors"] - 0.3 and a["narrow"] < a["same"] - 0.05 and abs(a["same"] - a["sensors"]) < 1e-9, f"sensors {a['sensors']:.2f}, refined away {a['refinedAway']:.2f}, lens x0.5 {a['narrow']:.2f}")
+        ok("[simulated] alignment status: a real overlap check that agrees is reported as good or fair", a["statusGood"]["status"] in ("good", "fair") and a["statusGood"]["ok"], str(a["statusGood"]))
+        ok("[simulated] alignment status: blank photos (nothing to compare) are UNVERIFIED, never good", a["statusFlat"]["status"] == "unverified" and not a["statusFlat"]["ok"] and a["statusFlat"].get("reason"), f"{a['statusFlat']} / {a['flatRef']}")
+        ok("[simulated] alignment status: no result at all, poor agreement and partly-checked sets are all flagged as not acceptable", a["statusNone"]["status"] == "unverified" and a["statusPoor"]["status"] == "poor" and not a["statusPoor"]["ok"] and a["statusPartial"]["status"] == "unverified", f"{a['statusNone']['status']}, {a['statusPoor']['status']}, {a['statusPartial']['status']}")
+
         # --- stitching quality (error after allowing one rigid turn of the whole sphere)
         q = R("""(async () => { const out = {};
           const base = PT.makeShots({}); out.perfect = (await PT.run(base, { refine: false, gains: false })).err;
@@ -348,7 +362,11 @@ def run(base=None):
         ok("[simulated] sensor mode: photos are taken by themselves on every dot", r["shots"] >= r["total"] - 1, f"{r['shots']} of {r['total']}")
         pg.wait_for_selector(".pc-review:not([hidden])", timeout=60000)
         cov = pg.inner_text(".pc-cov")
-        ok("[simulated] coverage gate: a complete set shows no blocking gaps and can be saved", "covered" in cov and pg.evaluate("!document.querySelector('[data-a=use]').disabled"), cov)
+        ok("[simulated] coverage gate: a complete set has no missing-area problems", "covered" in cov and pg.locator(".pc-issues li.block").count() == 0, cov)
+        # the fake camera shows the same flat picture everywhere, so there is nothing to line up: it must be called UNVERIFIED, not good
+        ok("[simulated] unverified alignment: the review says NOT verified, explains why and recommends a retake", ("NOT verified" in cov or "alignment poor" in cov) and "alignment good" not in cov and "alignment fair" not in cov and "retake" in pg.inner_text(".pc-issues").lower(), cov + " | " + pg.inner_text(".pc-issues")[:200])
+        ok("[simulated] unverified alignment: saving is blocked until the user explicitly acknowledges it", pg.evaluate("document.querySelector('[data-a=use]').disabled && !document.querySelector('.pc-ack').hidden && document.querySelector('[data-a=use]').textContent === 'Save anyway'"))
+        pg.check(".pc-ack input")
         pg.click(".pc-root [data-a=use]")
         pg.wait_for_function("window.__done", timeout=60000)
         d = pg.evaluate("window.__done")
@@ -395,6 +413,8 @@ def run(base=None):
             pg.click(".pc-root [data-a=take]"); pg.wait_for_timeout(120)
         pg.wait_for_selector(".pc-review:not([hidden])", timeout=90000)
         ok("[simulated] manual mode: a complete hand-taken set reaches the review", "covered" in pg.inner_text(".pc-cov") and "hand-placed" in pg.inner_text(".pc-cov"), pg.inner_text(".pc-cov"))
+        ok("[simulated] manual mode: hand-placed photos that cannot be verified are flagged with a warning", ("NOT verified" in pg.inner_text(".pc-cov") or "alignment poor" in pg.inner_text(".pc-cov")) and "retake" in pg.inner_text(".pc-issues").lower() and "hand-placed" in pg.inner_text(".pc-cov"), pg.inner_text(".pc-issues")[:160])
+        pg.check(".pc-ack input")
         pg.click(".pc-root [data-a=use]")
         pg.wait_for_function("window.__done", timeout=60000)
         d = pg.evaluate("window.__done")
@@ -422,7 +442,7 @@ def run(base=None):
         for _ in range(pg.evaluate("__api.targets().filter(t => !t.done).length")):
             pg.click(".pc-root [data-a=take]"); pg.wait_for_timeout(120)
         pg.wait_for_selector(".pc-review:not([hidden])", timeout=90000)
-        ok("[simulated] coverage gate: after capturing the missing areas the gate opens", pg.evaluate("!document.querySelector('[data-a=use]').disabled"), pg.inner_text(".pc-cov"))
+        ok("[simulated] coverage gate: after capturing the missing areas the missing-area blocks are gone", pg.locator(".pc-issues li.block").count() == 0 and pg.evaluate("document.querySelector('.pc-ack span').textContent.includes('alignment') && !document.querySelector('.pc-ack span').textContent.includes('missing')"), pg.inner_text(".pc-cov") + " | " + pg.evaluate("document.querySelector('.pc-ack span').textContent"))
         ok("[simulated] sensors silent / coverage gate: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
@@ -432,6 +452,9 @@ def run(base=None):
         pg.goto(base + "/pano-bench.html?quick=1", wait_until="networkidle"); pg.click("#go"); pg.wait_for_function("window.__benchDone === true", timeout=60000)
         txt = pg.inner_text("#out")
         ok("[simulated] speed-test page: runs and reports timings", "photos 640px, picture 512px:" in txt and "FAILED" not in txt, txt[-120:])
+        page_txt = pg.inner_text("body")
+        ok("[simulated] speed-test page: states it measures synthetic-image stitching only, not camera capture, JPEG encoding or final image quality", all(k in page_txt for k in ("synthetic-image stitching", "camera capture", "JPEG encoding", "final image quality")), page_txt[:300])
+        ok("[simulated] speed-test report (the copied text) repeats the limitation", all(k in txt for k in ("WHAT THIS MEASURES", "camera capture", "JPEG encoding", "quality")), txt[:240])
         ok("[simulated] speed-test page: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 

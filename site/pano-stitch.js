@@ -99,7 +99,9 @@ function sharpness(rgba, w, h) { let s = 0, n = 0; for (let y = 1; y < h - 1; y 
    severity: 'block' (do not save without a deliberate override), 'warn', 'note'. Coordinates are world yaw / pitch in degrees. */
 function analyzeCoverage(shots, opts) {
   opts = opts || {}; const GX = opts.gx || 180, GY = GX >> 1, inner = opts.inner == null ? 0.94 : opts.inner;
-  const P = shots.map(s => { const f = (s.w / 2) / Math.tan(s.hfov * D2R / 2); return { R: s.R, f, hw: s.w / 2 * inner, hh: s.h / 2 * inner, fwd: fwdOf(s.R), cosLim: Math.cos(Math.min(halfDiagOf(s.w, s.h, s.hfov) + 0.02, Math.PI / 2 - 0.01)) }; });
+  // after alignment, pass the refined rotations (shot.Rr) and the fitted lens scale: coverage then describes the FINAL panorama
+  const fs = opts.fovScale || 1;
+  const P = shots.map(s => { const R = s.Rr || s.R, hfov = 2 * Math.atan(Math.tan(s.hfov * D2R / 2) * fs) * R2D, f = (s.w / 2) / Math.tan(hfov * D2R / 2); return { R, f, hw: s.w / 2 * inner, hh: s.h / 2 * inner, fwd: fwdOf(R), cosLim: Math.cos(Math.min(halfDiagOf(s.w, s.h, hfov) + 0.02, Math.PI / 2 - 0.01)) }; });
   const counts = new Uint8Array(GX * GY);
   const dirs = new Float32Array(GX * GY * 3), wgt = new Float32Array(GY);
   for (let y = 0; y < GY; y++) { const lat = (0.5 - (y + 0.5) / GY) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat); wgt[y] = cl;
@@ -211,12 +213,22 @@ async function refineAlignment(shots, opts) {
   }
   await pass(0.5, 0.25, fovScale, false);
   const cost1 = totalCost(fovScale);
+  let verified = 0; for (let k = 0; k < n; k++) if (costOf(k, S[k].R, fovScale) != null) verified++;   // photos that had enough shared detail to be checked at all
   const moved = S.map(A => { const d = mul(T(A.R0), A.R); return Math.acos(Math.max(-1, Math.min(1, (d[0][0] + d[1][1] + d[2][2] - 1) / 2))) * R2D; });
   S.forEach(A => { A.s.Rr = A.R; });
   // a result that is not clearly better than the sensors is not used
   const better = cost0 != null && cost1 != null && cost1 < cost0 - 0.003;
   if (!better) { S.forEach(A => { A.s.Rr = A.R0; }); fovScale = 1; }
-  return { fovScale: better ? fovScale : 1, moved, cost0, cost1, used: !!better };
+  return { fovScale: better ? fovScale : 1, moved, cost0, cost1, costFinal: better ? cost1 : cost0, verifiedFrac: n ? verified / n : 0, used: !!better };
+}
+
+/* Was the alignment actually CHECKED against the pictures? Never call an unchecked result good.
+   good / fair / poor: the overlaps were compared and agree well / acceptably / badly.
+   unverified: too little shared detail between photos (blank walls, glare, too little overlap) to check anything, so the
+   result rests on the phone's sensors alone. ok = may be presented without a warning. */
+function alignmentStatus(ref) {
+  if (!ref || ref.costFinal == null || ref.verifiedFrac < 0.7) return { status: 'unverified', ok: false, reason: ref && ref.costFinal != null ? 'only ' + Math.round((ref.verifiedFrac || 0) * 100) + '% of the photos had enough shared detail to be checked' : 'the photos share too little detail to be compared' };
+  const c = ref.costFinal; return c < 0.25 ? { status: 'good', ok: true } : c < 0.5 ? { status: 'fair', ok: true } : { status: 'poor', ok: false, reason: 'overlapping photos disagree about where things are' };
 }
 
 /* ------------------------------------------------------------------ exposure / colour per photo */
@@ -365,5 +377,5 @@ async function toPixels(src, maxW) {
   return { data: ctx.getImageData(0, 0, w, h).data, w, h };
 }
 
-g.AS360Stitch = { rotationFromEuler, eulerFromDeviceMatrix, rotationFromYawPitch, smallRot, fovFor, prepLow, downscale, sharpness, analyzeCoverage, refineAlignment, solveGains, stitchAsync, memShots, realDetailWidth, fillSmallGaps, toCanvas, toPixels };
+g.AS360Stitch = { rotationFromEuler, eulerFromDeviceMatrix, rotationFromYawPitch, smallRot, fovFor, prepLow, downscale, sharpness, analyzeCoverage, refineAlignment, alignmentStatus, solveGains, stitchAsync, memShots, realDetailWidth, fillSmallGaps, toCanvas, toPixels };
 })(typeof window !== 'undefined' ? window : globalThis);
