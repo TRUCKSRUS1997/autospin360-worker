@@ -9,6 +9,7 @@ import mimetypes
 import os
 import socketserver
 import threading
+import time
 
 import fixtures
 
@@ -21,6 +22,7 @@ class Server:
         self.hits = []        # (path) of every request, so tests can count downloads
         self.delay = 0.0      # optional per-file delay (seconds), to imitate a slow connection
         self.fail = set()     # /files/ names that answer 500, to test error handling
+        self.rtt = 0.0        # optional delay on EVERY request (seconds), to imitate a phone's network round trip
         self._cache = {}
         srv = self
 
@@ -43,7 +45,9 @@ class Server:
 
             def do_GET(self):
                 path, _, query = self.path.partition("?")
-                srv.hits.append(path)
+                srv.hits.append(self.path)
+                if srv.rtt:
+                    time.sleep(srv.rtt)
                 base = f"http://127.0.0.1:{srv.port}"
                 v = fixtures.vehicle(base)
                 js = lambda o, c=200: self.send(c, json.dumps(o).encode(), "application/json")
@@ -64,7 +68,6 @@ class Server:
                     if name in srv.fail:
                         return self.send(500, b"boom", "text/plain")
                     if srv.delay:
-                        import time
                         time.sleep(srv.delay)
                     if name not in srv._cache:
                         i = int("".join(c for c in name.split("-")[-1] if c.isdigit()) or 0)
