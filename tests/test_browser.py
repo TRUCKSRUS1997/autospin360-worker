@@ -6,6 +6,7 @@ With --base URL: runs the read-only checks against a real site, such as the prev
 import hashlib
 import json
 import time
+from pathlib import Path
 from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
@@ -17,7 +18,7 @@ VIEWPORTS = {
     "phone": "iPhone 13",
     "tablet": "iPad (gen 7)",
 }
-PAGES = ["/admin.html", "/appraisal.html", "/capture.html", "/media.html"]    # must load without script errors (signed out)
+PAGES = ["/admin.html", "/appraisal.html", "/capture.html", "/media.html", "/pano-bench.html"]    # must load without script errors (signed out)
 
 
 FAKE_CAMERA = """
@@ -239,42 +240,222 @@ def run(base=None):
         ok("gallery: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
-        # interior panorama stitcher: photos laid onto a sphere from their pointing directions must reproduce a known scene
+        # ======================= interior panorama (ALL SIMULATED: made-up scenes, fake camera, fake motion sensors; none of this is real-iPhone data) =======================
+        helpers = (Path(__file__).parent / "pano_helpers.js").read_text()
         ctx = browser.new_context(viewport={"width": 1280, "height": 800})
         pg = ctx.new_page()
         probe = Probe(pg, host)
         pg.goto(car_url, wait_until="networkidle")
-        pg.evaluate("""async () => { await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/pano-stitch.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
-        r = pg.evaluate("""(() => {
-          const S = AS360Stitch, D = Math.PI / 180;
-          const scene = (lon, lat) => [128 + 100 * Math.sin(2 * lon + lat), 128 + 100 * Math.cos(3 * lat - lon), 128 + 100 * Math.sin(lon * 1 - 2 * lat)];
-          const rotYP = (yaw, pit) => { const cy = Math.cos(yaw * D), sy = Math.sin(yaw * D), cp = Math.cos(pit * D), sp = Math.sin(pit * D);
-            const f = [cp * sy, sp, cp * cy], r = [cy, 0, -sy], u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
-            return [[r[0], u[0], f[0]], [r[1], u[1], f[1]], [r[2], u[2], f[2]]]; };
-          const render = (R, w, h, hfov) => { const f = (w / 2) / Math.tan(hfov * D / 2), d = new Uint8ClampedArray(w * h * 4);
-            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let cx = (x - (w - 1) / 2) / f, cy = ((h - 1) / 2 - y) / f, cz = 1; const n = Math.hypot(cx, cy, cz); cx /= n; cy /= n; cz /= n;
-              const wx = R[0][0] * cx + R[0][1] * cy + R[0][2] * cz, wy = R[1][0] * cx + R[1][1] * cy + R[1][2] * cz, wz = R[2][0] * cx + R[2][1] * cy + R[2][2] * cz;
-              const c = scene(Math.atan2(wx, wz), Math.asin(Math.max(-1, Math.min(1, wy)))), o = (y * w + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; }
-            return { data: d, w, h, R, hfov }; };
-          const rings = [[0, 8], [50, 6], [-50, 6]], shots = [];
-          rings.forEach(([pit, cnt]) => { for (let k = 0; k < cnt; k++) shots.push(render(rotYP(k * 360 / cnt + (pit ? 15 : 0), pit), 240, 180, 100)); });
-          shots.push(render(rotYP(0, 90), 240, 180, 100)); shots.push(render(rotYP(0, -90), 240, 180, 100));
-          const res = S.stitch(shots, { width: 512, gain: false });
-          let err = 0, cnt = 0;
-          for (let y = 0; y < res.height; y += 2) for (let x = 0; x < res.width; x += 2) { const o = (y * res.width + x) * 4; if (!res.data[o + 3]) continue;
-            const c = scene(((x + 0.5) / res.width - 0.5) * 2 * Math.PI, (0.5 - (y + 0.5) / res.height) * Math.PI);
-            err += (Math.abs(res.data[o] - c[0]) + Math.abs(res.data[o + 1] - c[1]) + Math.abs(res.data[o + 2] - c[2])) / 3; cnt++; }
-          const few = S.stitch(shots.slice(0, 4), { width: 256, gain: false });
-          const f = (a, b, c, sa) => { const R = S.rotationFromEuler(a, b, c, sa || 0); return [R[0][2], R[1][2], R[2][2]].map(v => +v.toFixed(3)); };
-          const R0 = S.rotationFromEuler(37, 71, -12, 0); let ortho = 0; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let d = 0; for (let k = 0; k < 3; k++) d += R0[k][i] * R0[k][j]; ortho = Math.max(ortho, Math.abs(d - (i === j ? 1 : 0))); }
-          return { coverage: res.coverage, err: err / cnt, fewCov: few.coverage, fewHoles: few.holes.length, up: f(0, 90, 0), flat: f(0, 0, 0), ortho };
-        })()""")
-        ok("stitcher: 22 photos cover the whole sphere", r["coverage"] > 0.97, f"{r['coverage']:.3f}")
-        ok("stitcher: the result matches the real scene (average error under 6 of 255)", r["err"] < 6, f"{r['err']:.2f}")
-        ok("stitcher: too few photos report a low coverage and list what is missing", r["fewCov"] < 0.5 and r["fewHoles"] > 0, f"{r['fewCov']:.2f}, {r['fewHoles']} empty areas")
-        ok("stitcher: phone upright points at the horizon, flat points at the floor", r["up"] == [0, 0, 1] and r["flat"] == [0, -1, 0], f"{r['up']} {r['flat']}")
-        ok("stitcher: sensor rotation is a proper rotation", r["ortho"] < 1e-9, str(r["ortho"]))
-        ok("stitcher: no script errors", not probe.errors, "; ".join(probe.errors))
+        pg.evaluate("""async () => { for (const u of ['/pano-stitch.js', '/pano-capture.js']) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
+        pg.add_script_tag(content=helpers)
+        R = lambda js, arg=None: pg.evaluate(js, arg) if arg is not None else pg.evaluate(js)
+
+        # --- coverage validation
+        r = R("""(() => { const S = PT.S, full = PT.makeShots({ w: 64, h: 48 }), an = x => S.analyzeCoverage(x.map(s => ({ w: s.w, h: s.h, R: s.R, hfov: s.hfov })));
+          const lay = PT.layout(), idx = f => lay.map((l, i) => f(l) ? i : -1).filter(i => i >= 0), sub = ids => PT.makeShots({ w: 64, h: 48, only: ids });
+          return { full: an(full), first10: an(sub([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])),
+            noCeiling: an(sub(idx(l => l[1] <= 0 && l[1] > -80 || l[1] === -90 || l[1] === -50))), noSector: an(sub(idx(l => !(l[1] === 0 && l[0] >= 90 && l[0] <= 180) && !(Math.abs(l[1]) === 50 && l[0] >= 60 && l[0] <= 200)))),
+            noPoles: an(PT.makeShots({ w: 64, h: 48, hfov: 70, only: idx(l => Math.abs(l[1]) < 80) })) }; })()""")
+        ok("[simulated] coverage: the full set of photos passes", not r["full"]["blocking"] and r["full"]["covered"] > 0.99, f"covered {r['full']['covered']:.3f}")
+        ok("[simulated] coverage: 10 photos are NOT enough and are blocked", r["first10"]["blocking"] and r["first10"]["covered"] < 0.8, f"covered {r['first10']['covered']:.2f}")
+        ok("[simulated] coverage: a missing ceiling is reported", any("ceiling" in i["text"] for i in r["noCeiling"]["issues"]) and r["noCeiling"]["blocking"], str([i["text"] for i in r["noCeiling"]["issues"]][:2]))
+        ok("[simulated] coverage: a missing sector at eye level is reported as important", any("eye level" in i["text"] and i["severity"] == "block" for i in r["noSector"]["issues"]), str([i["text"] for i in r["noSector"]["issues"]][:3]))
+        ok("[simulated] coverage: small gaps right at the top and bottom warn but do not block", not r["noPoles"]["blocking"] and r["noPoles"]["issues"] and all(i["severity"] in ("note", "warn") and ("ceiling" in i["text"] or "floor" in i["text"]) for i in r["noPoles"]["issues"]), str([(i["severity"], i["text"]) for i in r["noPoles"]["issues"]]))
+
+        # --- review requirement: coverage must describe the FINAL (aligned) panorama, and unverified alignment must never read as good
+        a = R("""(async () => { const S = PT.S, full = PT.makeShots({ w: 64, h: 48 }), meta = x => x.map(s => ({ w: s.w, h: s.h, R: s.R, hfov: s.hfov, Rr: s.Rr }));
+          const first = full[0].R, flipped = PT.makeShots({ w: 64, h: 48 }).map(s => { s.Rr = first.map(r => r.slice()); return s; });   // every photo 'refined' onto the same direction: the final panorama would cover far less
+          const out = { sensors: S.analyzeCoverage(meta(full)).covered, refinedAway: S.analyzeCoverage(meta(flipped)).covered, narrow: S.analyzeCoverage(meta(full), { fovScale: 0.5 }).covered, same: S.analyzeCoverage(meta(full), { fovScale: 1 }).covered };
+          const good = await S.refineAlignment(PT.makeShots({ err: 2.5 }).map(s => Object.assign({}, s)), { range: 3, fit: true });
+          const flat = PT.makeShots({ w: 64, h: 48 }).map(s => { const d = new Uint8ClampedArray(s.data.length).fill(120); for (let i = 3; i < d.length; i += 4) d[i] = 255; return { data: d, w: s.w, h: s.h, R: s.R, hfov: s.hfov, low: S.prepLow(d, s.w, s.h) }; });
+          const un = await S.refineAlignment(flat, { range: 3, fit: true });
+          out.statusGood = S.alignmentStatus(good); out.statusFlat = S.alignmentStatus(un); out.statusNone = S.alignmentStatus(null); out.flatRef = { used: un.used, cost: un.costFinal, frac: un.verifiedFrac };
+          out.statusPoor = S.alignmentStatus({ costFinal: 0.9, verifiedFrac: 1 }); out.statusPartial = S.alignmentStatus({ costFinal: 0.1, verifiedFrac: 0.4 }); return out; })()""")
+        ok("[simulated] coverage after alignment: refined rotations and the fitted lens view are used, not the raw sensor values", a["refinedAway"] < a["sensors"] - 0.3 and a["narrow"] < a["same"] - 0.05 and abs(a["same"] - a["sensors"]) < 1e-9, f"sensors {a['sensors']:.2f}, refined away {a['refinedAway']:.2f}, lens x0.5 {a['narrow']:.2f}")
+        ok("[simulated] alignment status: a real overlap check that agrees is reported as good or fair", a["statusGood"]["status"] in ("good", "fair") and a["statusGood"]["ok"], str(a["statusGood"]))
+        ok("[simulated] alignment status: blank photos (nothing to compare) are UNVERIFIED, never good", a["statusFlat"]["status"] == "unverified" and not a["statusFlat"]["ok"] and a["statusFlat"].get("reason"), f"{a['statusFlat']} / {a['flatRef']}")
+        ok("[simulated] alignment status: no result at all, poor agreement and partly-checked sets are all flagged as not acceptable", a["statusNone"]["status"] == "unverified" and a["statusPoor"]["status"] == "poor" and not a["statusPoor"]["ok"] and a["statusPartial"]["status"] == "unverified", f"{a['statusNone']['status']}, {a['statusPoor']['status']}, {a['statusPartial']['status']}")
+
+        # --- stitching quality (error after allowing one rigid turn of the whole sphere)
+        q = R("""(async () => { const out = {};
+          const base = PT.makeShots({}); out.perfect = (await PT.run(base, { refine: false, gains: false })).err;
+          const e1 = PT.makeShots({ err: 2.5 }); out.sensorRaw = (await PT.run(e1, { refine: false, gains: false })).err; const r1 = await PT.run(PT.makeShots({ err: 2.5 }), {}); out.sensorFixed = r1.err; out.cost0 = r1.ref.cost0; out.cost1 = r1.ref.cost1;
+          out.lensRaw = (await PT.run(PT.makeShots({ err: 2.5, assumed: 90 }), { refine: false, gains: false })).err; const r2 = await PT.run(PT.makeShots({ err: 2.5, assumed: 90 }), {}); out.lensFixed = r2.err; out.fovScale = r2.ref.fovScale;
+          out.expoRaw = (await PT.run(PT.makeShots({ err: 2.5, expo: true }), { refine: false, gains: false })).err; out.expoFixed = (await PT.run(PT.makeShots({ err: 2.5, expo: true }), {})).err;
+          out.expoGainsOnly = (await PT.run(PT.makeShots({ expo: true }), { refine: false })).err; out.expoNoGains = (await PT.run(PT.makeShots({ expo: true }), { refine: false, gains: false })).err;
+          out.manualRaw = (await PT.run(PT.makeShots({ err: 6 }), { refine: false, gains: false })).err; const r3 = await PT.run(PT.makeShots({ err: 6 }), { range: 8 }); out.manualFixed = r3.err; out.manualCost = r3.ref.cost1;
+          return out; })()""")
+        ok("[simulated] stitching: with perfect pointing directions the result matches the scene", q["perfect"] < 2.5, f"error {q['perfect']:.2f} of 255")
+        ok("[simulated] alignment: motion-sensor errors (about 2 degrees) are corrected", q["sensorFixed"] < q["sensorRaw"] / 2.5 and q["cost1"] < q["cost0"] / 4, f"error {q['sensorRaw']:.1f} -> {q['sensorFixed']:.1f}; overlap disagreement {q['cost0']:.2f} -> {q['cost1']:.2f}")
+        ok("[simulated] alignment: a wrong lens view is found and fixed automatically", 1.14 < q["fovScale"] < 1.24 and q["lensFixed"] < q["lensRaw"] / 1.8, f"assumed 90 degrees, true 100: scale {q['fovScale']:.2f} (ideal 1.19); error {q['lensRaw']:.1f} -> {q['lensFixed']:.1f}")
+        ok("[simulated] exposure: photos with different brightness and colour are matched", q["expoGainsOnly"] < q["expoNoGains"] * 0.85 and q["expoFixed"] < q["expoRaw"] * 0.8, f"no sensor error: {q['expoNoGains']:.1f} -> {q['expoGainsOnly']:.1f}; with sensor error: {q['expoRaw']:.1f} -> {q['expoFixed']:.1f}")
+        ok("[simulated] manual mode: hand-placed photos (about 5 degrees off) are lined up", q["manualFixed"] < q["manualRaw"] / 3, f"error {q['manualRaw']:.1f} -> {q['manualFixed']:.1f}, overlap disagreement {q['manualCost']:.2f}")
+
+        # --- close-range parallax: it cannot be blended away; the alignment-quality number must at least reveal it
+        pz = R("""(async () => { const near = a => ({ center: [0.2, -0.1, 0.9], radius: 0.3, arm: a }); const out = {};
+          for (const a of [0, 0.15]) { const r = await PT.run(PT.makeShots({ near: near(a) }), { gains: false, W: 256 }); out['arm' + a] = { cost: r.ref.cost1 }; }
+          const sh = PT.makeShots({ near: near(0.15) }), mk = async blend => (await PT.S.stitchAsync(PT.S.memShots(sh), { width: 256, blend })).data.length;
+          return out; })()""")
+        ok("[simulated] parallax: a close object seen from a moving camera shows up as worse alignment quality", pz["arm0.15"]["cost"] > pz["arm0"]["cost"] * 1.5, f"overlap disagreement {pz['arm0']['cost']:.2f} (camera on the turning point) vs {pz['arm0.15']['cost']:.2f} (15 cm out)")
+
+        # --- resolution, memory, orientation maths, blur
+        m = R("""(async () => { const S = PT.S, D = Math.PI / 180, out = {};
+          const mk = (long, lf) => { const f = S.fovFor(long, long * 0.75, lf); return [{ w: long, h: Math.round(long * 0.75), hfov: f.hfov }]; };
+          out.d1200 = S.realDetailWidth(mk(1200, 100), 4096); out.d1920 = S.realDetailWidth(mk(1920, 100), 4096); out.d4032 = S.realDetailWidth(mk(4032, 100), 4096); out.dcap = S.realDetailWidth(mk(4032, 100), 2048);
+          let live = 0, peak = 0, loads = 0; const shots = PT.makeShots({ w: 160, h: 120 }).map(s => ({ w: s.w, h: s.h, R: s.R, hfov: s.hfov, load: async () => { live++; loads++; peak = Math.max(peak, live); await new Promise(r => setTimeout(r, 1)); const d = s.data; live--; return { data: d, w: s.w, h: s.h }; } }));
+          await S.stitchAsync(shots, { width: 512, bandMB: 1 }); out.peakLoaded = peak; out.loads = loads; out.photos = shots.length;
+          // orientation: the same physical pose, phone held upright then turned to landscape, must give the same view direction and the same "up"
+          const Rz = a => [[Math.cos(a), -Math.sin(a), 0], [Math.sin(a), Math.cos(a), 0], [0, 0, 1]], Rx = a => [[1, 0, 0], [0, Math.cos(a), -Math.sin(a)], [0, Math.sin(a), Math.cos(a)]];
+          const mul = (A, B) => A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+          const worst = []; for (const [yaw, pit, roll] of [[30, 10, 0], [200, -25, 0], [-70, 35, 0], [120, 5, 0]]) {
+            const dev = mul(Rz(-yaw * D), Rx((90 + pit) * D)), eu = S.eulerFromDeviceMatrix(dev), P = S.rotationFromEuler(eu[0], eu[1], eu[2], 0);
+            for (const ang of [90, -90, 180]) { const dev2 = mul(dev, Rz(ang * D)), e2 = S.eulerFromDeviceMatrix(dev2), L = S.rotationFromEuler(e2[0], e2[1], e2[2], ang);
+              const dif = c => Math.acos(Math.max(-1, Math.min(1, P[0][c] * L[0][c] + P[1][c] * L[1][c] + P[2][c] * L[2][c]))) / D; worst.push(Math.max(dif(1), dif(2))); } }
+          out.orientDeg = Math.max(...worst);
+          const up = S.rotationFromEuler(0, 90, 0, 0), flat = S.rotationFromEuler(0, 0, 0, 0); out.upFwd = [up[0][2], up[1][2], up[2][2]].map(v => +v.toFixed(3)); out.flatFwd = [flat[0][2], flat[1][2], flat[2][2]].map(v => +v.toFixed(3));
+          // blur detection
+          const w = 160, h = 120, sharp = new Uint8ClampedArray(w * h * 4), blur = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = ((x >> 1) + (y >> 1)) & 1 ? 230 : 25, o = (y * w + x) * 4; sharp[o] = sharp[o + 1] = sharp[o + 2] = v; sharp[o + 3] = 255; }
+          const bl = S.downscale(sharp, w, h, 4); const up4 = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 4, q = ((y >> 2) * bl.w + (x >> 2)) * 4; up4[o] = up4[o + 1] = up4[o + 2] = bl.data[q]; up4[o + 3] = 255; }
+          out.sharpRatio = S.sharpness(sharp, w, h) / Math.max(1, S.sharpness(up4, w, h));
+          return out; })()""")
+        ok("[simulated] quality: photos with fewer pixels than the output are never upscaled to 4096", m["d1200"]["width"] <= 3072 and m["d1920"]["width"] == 4096 and m["d4032"]["width"] == 4096 and m["dcap"]["width"] == 2048, f"1200px photos support {m['d1200']['supports']} -> {m['d1200']['width']}; 1920px -> {m['d1920']['width']}")
+        ok("[simulated] memory: the stitcher holds one photo at a time and reads each only as needed", m["peakLoaded"] == 1 and m["loads"] >= m["photos"], f"{m['loads']} reads for {m['photos']} photos, at most {m['peakLoaded']} open at once")
+        ok("[simulated] sensors: upright, landscape and upside-down holds give the same view direction and up (checked against a physical model, not a real phone)", m["orientDeg"] < 0.5 and m["upFwd"] == [0, 0, 1] and m["flatFwd"] == [0, -1, 0], f"worst difference {m['orientDeg']:.3f} degrees")
+        ok("[simulated] quality: a blurred photo scores much lower than a sharp one", m["sharpRatio"] > 3, f"ratio {m['sharpRatio']:.1f}")
+
+        # --- capture helpers: lens detection, device plan, layout
+        h = R("""(() => { const C = AS360PanoCapture, dev = (label, id) => ({ kind: 'videoinput', label, deviceId: id || label });
+          const L = list => { const c = C.classifyCameras(list); return { wide: c.wide && c.wide.label, main: c.main && c.main.label, labelled: c.labelled }; };
+          return { pro: L(['Back Triple Camera', 'Back Ultra Wide Camera', 'Back Camera', 'Back Telephoto Camera', 'Front Camera'].map(l => dev(l))), eleven: L(['Back Dual Wide Camera', 'Back Ultra Wide Camera', 'Back Camera', 'Front Camera'].map(l => dev(l))),
+            se: L(['Back Camera', 'Front Camera'].map(l => dev(l))), dualOnly: L(['Back Dual Wide Camera', 'Front Camera'].map(l => dev(l))), hidden: L([dev(''), dev('')]), dash: L([dev('Back Ultra-Wide Camera'), dev('Back Camera')]), half: L([dev('Back Camera 0.5x'), dev('Back Camera')]), frontOnlyWide: L([dev('Front Ultra Wide Camera'), dev('Back Camera')]), german: L(['Frontkamera', 'Rückkamera', 'Ultraweitwinkelkamera hinten'].map(l => dev(l))), french: L(['Caméra avant', 'Caméra arrière', 'Caméra ultra grand-angle arrière'].map(l => dev(l))), spanish: L(['Cámara frontal', 'Cámara ultra gran angular trasera', 'Cámara trasera'].map(l => dev(l))),
+            planPhone: C.planDevice({ ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', deviceMemory: undefined }), planDesktop: C.planDevice({ ua: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120', touch: 0 }),
+            slow: C.pickWidth(4096, C.planDevice({ ua: 'iPhone', deviceMemory: 3 }), w => w * w / 4096 / 4096 * 120), fast: C.pickWidth(4096, C.planDevice({ ua: 'iPhone', deviceMemory: 3 }), w => w * w / 4096 / 4096 * 20), limited: C.pickWidth(2048, C.planDevice({ ua: 'iPhone', deviceMemory: 3 }), w => 5),
+            wideN: C.makeTargets(1440, 1920, 100).length, mainN: C.makeTargets(1440, 1920, 69).length, landN: C.makeTargets(1920, 1440, 100).length }; })()""")
+        ok("[simulated] lens: iPhone Pro, iPhone 11, dash and 0.5x label spellings (English, German, French, Spanish) all find the ultra-wide", h["pro"]["wide"] == "Back Ultra Wide Camera" and h["pro"]["main"] == "Back Camera" and h["eleven"]["wide"] == "Back Ultra Wide Camera" and h["eleven"]["main"] == "Back Camera" and h["dash"]["wide"] and h["half"]["wide"] and h["german"]["wide"] == "Ultraweitwinkelkamera hinten" and h["french"]["wide"] and h["spanish"]["wide"] == "Cámara ultra gran angular trasera", str({k: h[k]["wide"] for k in ("pro", "eleven", "dash", "half", "german", "french", "spanish")}))
+        ok("[simulated] lens: no ultra-wide on single-lens phones, virtual cameras, front cameras or before permission is given", h["se"]["wide"] is None and h["dualOnly"]["wide"] is None and h["hidden"]["wide"] is None and h["hidden"]["labelled"] is False and h["frontOnlyWide"]["wide"] is None, str({k: h[k]["wide"] for k in ("se", "dualOnly", "hidden", "frontOnlyWide")}))
+        ok("[simulated] device plan: phones keep a memory-safe photo size, desktops the full size", h["planPhone"]["mobile"] and h["planPhone"]["cap"] <= 2560 and h["planDesktop"]["cap"] == 4096, f"phone cap {h['planPhone']['cap']}, desktop cap {h['planDesktop']['cap']}")
+        ok("[simulated] performance: the final size steps down when it would take too long", h["fast"]["width"] == 4096 and h["slow"]["width"] < 4096 and h["slow"]["limitedBySpeed"] and h["limited"]["width"] == 2048, f"fast {h['fast']['width']}, slow {h['slow']['width']}, detail-limited {h['limited']['width']}")
+        ok("[simulated] layout: the 1x lens needs many more photos than the 0.5x lens, and the count adapts to how the phone is held", h["mainN"] > h["wideN"] * 1.6 and 14 <= h["wideN"] <= 26 and h["landN"] != h["wideN"], f"0.5x: {h['wideN']} photos, 1x: {h['mainN']}, landscape 0.5x: {h['landN']}")
+        ok("[simulated] panorama engine: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
+        # --- capture screen, driven with a fake camera and fake motion sensors
+        def capture_page(init=FAKE_CAMERA, perm="granted", mobile=True, silent=False):
+            c = browser.new_context(viewport={"width": 420, "height": 860}, has_touch=True, is_mobile=True) if mobile else browser.new_context(viewport={"width": 1280, "height": 800})
+            pgx = c.new_page(); pgx.on("dialog", lambda d: d.accept()); pr = Probe(pgx, host); pgx.add_init_script(init + f"\nDeviceOrientationEvent.requestPermission = async () => '{perm}';" + ("" if silent else "\nwindow.__idle = setInterval(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 90, gamma: 0 })), 40);"))
+            pgx.goto(car_url, wait_until="networkidle")
+            pgx.evaluate("""async () => { for (const u of ['/pano-stitch.js', '/pano-capture.js']) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }""")
+            return c, pgx, pr
+        SWEEP = """async () => { clearInterval(window.__idle); const sleep = ms => new Promise(r => setTimeout(r, ms)), send = (a, b) => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: a, beta: b, gamma: 0 }));
+          for (let k = 0; k < 6; k++) { send(0, 90); await sleep(60); }
+          for (const g of __api.targets()) { for (let k = 0; k < 14; k++) { send((360 - g.yaw) % 360, 90 + g.pitch); await sleep(50); } }
+          await sleep(500); return __api.state(); }"""
+
+        # 1. sensor mode, 0.5x lens found automatically, full flow, coverage gate passes, picture is 2:1 and not upscaled
+        ctx, pg, probe = capture_page()
+        pg.evaluate("""(() => { window.__done = null; window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024, onDone: async (f, info) => { const b = await createImageBitmap(f); window.__done = { type: f.type, size: f.size, w: b.width, h: b.height, info }; } }); })()""")
+        pg.click(".pc-root [data-a=start]")
+        pg.wait_for_function("document.querySelector('.pc-intro').hidden", timeout=8000)
+        st = pg.evaluate("__api.state()")
+        ok("[simulated] lens: the 0.5x lens is picked automatically from the camera list", st["wide"] is True and st["lensSource"] == "auto" and "Ultra Wide" in st["label"], str(st))
+        r = pg.evaluate(SWEEP)
+        ok("[simulated] sensor mode: photos are taken by themselves on every dot", r["shots"] >= r["total"] - 1, f"{r['shots']} of {r['total']}")
+        pg.wait_for_selector(".pc-review:not([hidden])", timeout=60000)
+        cov = pg.inner_text(".pc-cov")
+        ok("[simulated] coverage gate: a complete set has no missing-area problems", "covered" in cov and pg.locator(".pc-issues li.block").count() == 0, cov)
+        # the fake camera shows the same flat picture everywhere, so there is nothing to line up: it must be called UNVERIFIED, not good
+        ok("[simulated] unverified alignment: the review says NOT verified, explains why and recommends a retake", ("NOT verified" in cov or "alignment poor" in cov) and "alignment good" not in cov and "alignment fair" not in cov and "retake" in pg.inner_text(".pc-issues").lower(), cov + " | " + pg.inner_text(".pc-issues")[:200])
+        ok("[simulated] unverified alignment: saving is blocked until the user explicitly acknowledges it", pg.evaluate("document.querySelector('[data-a=use]').disabled && !document.querySelector('.pc-ack').hidden && document.querySelector('[data-a=use]').textContent === 'Save anyway'"))
+        pg.check(".pc-ack input")
+        pg.click(".pc-root [data-a=use]")
+        pg.wait_for_function("window.__done", timeout=60000)
+        d = pg.evaluate("window.__done")
+        ok("[simulated] output: the picture is a JPEG, exactly 2:1, never larger than the photos can support", d["type"] == "image/jpeg" and d["w"] == 2 * d["h"] and d["w"] <= 1024 and d["info"]["coverage"] > 0.9, f"{d['w']}x{d['h']}, {d['size']} bytes, coverage {d['info']['coverage']:.2f}")
+        ok("[simulated] diagnostics: timings, camera and alignment details are recorded for real-device reports", all(k in d["info"]["diag"] for k in ("camera", "alignment", "timings", "coverage", "shots", "plan")), str(list(d["info"]["diag"].keys())))
+        ok("[simulated] capture screen closes when done", pg.evaluate("!document.querySelector('.pc-root')"))
+        ok("[simulated] sensor mode: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
+        # 2. only the main camera is listed: the user can pick the 0.5x lens by hand, and it is remembered
+        nowide = FAKE_CAMERA.replace("{ kind: 'videoinput', deviceId: 'wide1', label: 'Back Ultra Wide Camera' }, ", "")
+        ctx, pg, probe = capture_page(nowide)
+        pg.evaluate("localStorage.removeItem('as360-pano-lens'); (() => { window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024 }); })()")
+        pg.click(".pc-root [data-a=start]")
+        pg.wait_for_function("document.querySelector('.pc-intro').hidden", timeout=8000)
+        st = pg.evaluate("__api.state()")
+        ok("[simulated] lens fallback: without an ultra-wide in the list it uses the main lens and says so", st["wide"] is False and "Main lens" in pg.inner_text(".pc-note"), pg.inner_text(".pc-note"))
+        pg.click(".pc-root [data-a=lens]")
+        pg.wait_for_selector(".pc-lens:not([hidden])")
+        pg.locator(".pc-list button", has_text="use as 0.5").first.click()
+        pg.wait_for_function("__api.state().wide === true && __api.state().total < 26", timeout=12000)
+        st = pg.evaluate("__api.state()")
+        ok("[simulated] lens fallback: choosing the 0.5x lens by hand works and fewer photos are planned", st["lensSource"] == "manual" and st["total"] < 26, str(st))
+        saved = pg.evaluate("localStorage.getItem('as360-pano-lens')")
+        ok("[simulated] lens fallback: the manual choice is remembered", saved and '"wide":true' in saved, str(saved))
+        pg.evaluate("__api.close()")
+        pg.evaluate("window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024 })"); pg.click(".pc-root [data-a=start]"); pg.wait_for_function("document.querySelector('.pc-intro').hidden", timeout=8000)
+        st = pg.evaluate("__api.state()")
+        ok("[simulated] lens fallback: the remembered choice is used next time", st["wide"] is True and st["lensSource"] == "remembered", str(st))
+        ok("[simulated] lens fallback: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
+        # 3. motion permission refused -> clear message, manual mode still works end to end
+        ctx, pg, probe = capture_page(perm="denied")
+        pg.evaluate("window.__done = null; window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024, onDone: async (f, info) => { const b = await createImageBitmap(f); window.__done = { w: b.width, h: b.height, info }; } })")
+        pg.click(".pc-root [data-a=start]")
+        pg.wait_for_function("document.querySelector('.pc-intro-p').textContent.includes('refused')", timeout=8000)
+        ok("[simulated] sensor permission: a refusal is explained and manual mode is offered", "manual mode" in pg.inner_text(".pc-intro-p") and pg.evaluate("!document.querySelector('[data-a=startmanual]').disabled"), pg.inner_text(".pc-intro-p")[:140])
+        pg.click(".pc-root [data-a=startmanual]")
+        pg.wait_for_function("document.querySelector('.pc-intro').hidden", timeout=8000)
+        n = pg.evaluate("__api.state().total")
+        ok("[simulated] manual mode: each photo is described in words (where to point, how far to turn)", "Point the phone" in pg.inner_text(".pc-msg"), pg.inner_text(".pc-msg"))
+        for _ in range(n):
+            pg.click(".pc-root [data-a=take]"); pg.wait_for_timeout(120)
+        pg.wait_for_selector(".pc-review:not([hidden])", timeout=90000)
+        ok("[simulated] manual mode: a complete hand-taken set reaches the review", "covered" in pg.inner_text(".pc-cov") and "hand-placed" in pg.inner_text(".pc-cov"), pg.inner_text(".pc-cov"))
+        ok("[simulated] manual mode: hand-placed photos that cannot be verified are flagged with a warning", ("NOT verified" in pg.inner_text(".pc-cov") or "alignment poor" in pg.inner_text(".pc-cov")) and "retake" in pg.inner_text(".pc-issues").lower() and "hand-placed" in pg.inner_text(".pc-cov"), pg.inner_text(".pc-issues")[:160])
+        pg.check(".pc-ack input")
+        pg.click(".pc-root [data-a=use]")
+        pg.wait_for_function("window.__done", timeout=60000)
+        d = pg.evaluate("window.__done")
+        ok("[simulated] manual mode: a 2:1 picture comes out", d["w"] == 2 * d["h"], f"{d['w']}x{d['h']}")
+        ok("[simulated] sensor permission / manual mode: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
+        # 4. sensors granted but silent -> explained, manual offered; and 10 photos cannot be saved without an explicit override
+        ctx, pg, probe = capture_page(silent=True)
+        pg.evaluate("window.__api = AS360PanoCapture.open({ holdMs: 250, outWidth: 1024, sensorWaitMs: 400 })")
+        pg.click(".pc-root [data-a=start]")
+        pg.wait_for_function("document.querySelector('.pc-intro-p').textContent.includes('not sending')", timeout=8000)
+        ok("[simulated] sensors silent: the user is told and can switch to manual mode", pg.evaluate("!document.querySelector('[data-a=startmanual]').disabled"), pg.inner_text(".pc-intro-p")[:120])
+        pg.click(".pc-root [data-a=startmanual]")
+        pg.wait_for_function("document.querySelector('.pc-intro').hidden", timeout=8000)
+        for _ in range(10):
+            pg.click(".pc-root [data-a=take]"); pg.wait_for_timeout(120)
+        pg.click(".pc-root [data-a=finish]")
+        pg.wait_for_selector(".pc-review:not([hidden])", timeout=90000)
+        ok("[simulated] coverage gate: 10 photos show the gaps and block a normal save", pg.evaluate("document.querySelector('[data-a=use]').disabled") and pg.locator(".pc-issues li.block").count() >= 1 and pg.evaluate("!document.querySelector('[data-a=more]').hidden"), pg.inner_text(".pc-cov"))
+        n0 = pg.evaluate("__api.state().total")
+        pg.click(".pc-root [data-a=more]")
+        n1 = pg.evaluate("__api.state().total")
+        ok("[simulated] coverage gate: 'Capture missing areas' adds targets for the gaps", n1 > n0 and pg.evaluate("__api.targets().some(t => !t.done)"), f"{n0} -> {n1} targets")
+        for _ in range(pg.evaluate("__api.targets().filter(t => !t.done).length")):
+            pg.click(".pc-root [data-a=take]"); pg.wait_for_timeout(120)
+        pg.wait_for_selector(".pc-review:not([hidden])", timeout=90000)
+        ok("[simulated] coverage gate: after capturing the missing areas the missing-area blocks are gone", pg.locator(".pc-issues li.block").count() == 0 and pg.evaluate("document.querySelector('.pc-ack span').textContent.includes('alignment') && !document.querySelector('.pc-ack span').textContent.includes('missing')"), pg.inner_text(".pc-cov") + " | " + pg.evaluate("document.querySelector('.pc-ack span').textContent"))
+        ok("[simulated] sensors silent / coverage gate: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
+        # phone speed-test page (the page a real iPhone runs): quick mode must finish and report
+        ctx = browser.new_context(viewport={"width": 420, "height": 860}, is_mobile=True, has_touch=True)
+        pg = ctx.new_page(); probe = Probe(pg, host)
+        pg.goto(base + "/pano-bench.html?quick=1", wait_until="networkidle"); pg.click("#go"); pg.wait_for_function("window.__benchDone === true", timeout=60000)
+        txt = pg.inner_text("#out")
+        ok("[simulated] speed-test page: runs and reports timings", "photos 640px, picture 512px:" in txt and "FAILED" not in txt, txt[-120:])
+        page_txt = pg.inner_text("body")
+        ok("[simulated] speed-test page: states it measures synthetic-image stitching only, not camera capture, JPEG encoding or final image quality", all(k in page_txt for k in ("synthetic-image stitching", "camera capture", "JPEG encoding", "final image quality")), page_txt[:300])
+        ok("[simulated] speed-test report (the copied text) repeats the limitation", all(k in txt for k in ("WHAT THIS MEASURES", "camera capture", "JPEG encoding", "quality")), txt[:240])
+        ok("[simulated] speed-test page: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
         # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight

@@ -47,6 +47,8 @@
 <main class="wrap" id="app"><div class="loader"><span class="spin"></span> Loading&hellip;</div></main>
 <div id="toast" role="status"></div>
 <script src="/media-tools.js"></script>
+<script src="/pano-stitch.js"></script>
+<script src="/pano-capture.js"></script>
 <script src="/tour.js"></script>
 <script src="/showroom.js"></script>
 <script src="/viewer.js"></script>
@@ -150,13 +152,15 @@ function manage(id) {
       $('#sv').onclick = () => save().then(draw).catch(() => {});
     } else if (tab === 'int') {
       const iv = v.interiorViews = v.interiorViews || [];
-      mb.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:0">Add a viewpoint only for a real 2:1 (equirectangular) panorama taken from that seat. Ordinary photos cannot be turned into a 360° view, so they are refused. Hotspots: place them after saving, in the page editor.</p><div class="row2"><input id="il" class="f2" placeholder="Label, e.g. Driver's seat" maxlength="40"><label class="b2 pri" style="display:inline-grid;place-items:center">Add panorama<input id="if" type="file" accept="image/*" hidden></label></div>
+      mb.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:0">Add a viewpoint only for a real 2:1 (equirectangular) panorama taken from that seat. Ordinary photos cannot be turned into a 360° view, so they are refused. Hotspots: place them after saving, in the page editor.</p><div class="row2"><input id="il" class="f2" placeholder="Label, e.g. Driver's seat" maxlength="40"><button type="button" class="b2 pri" id="pcap">Capture with phone</button><label class="b2" style="display:inline-grid;place-items:center">Add panorama file<input id="if" type="file" accept="image/*" hidden></label></div>
       <div class="ph">${iv.map((x, i) => `<figure><img alt="" src="${esc(x.url)}" loading="lazy"><figcaption><input class="f2" data-l="${i}" value="${esc(x.label)}" maxlength="40"><span>${(x.hotspots || []).length} hotspot(s)</span><button class="b2" data-h="${i}">Place hotspots</button><button class="b2 dng" data-x="${i}">Remove</button></figcaption></figure>`).join('') || '<p style="color:var(--muted)">No viewpoints yet. The Interior tab will show the existing interior photos instead.</p>'}</div><div class="row2" style="margin-top:12px"><button class="b2 pri" id="sv">Save changes</button></div>`;
       mb.querySelectorAll('[data-l]').forEach(i => i.oninput = () => { iv[+i.dataset.l].label = i.value; mark('interiorViews'); });
       mb.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { if (!confirm('Remove this viewpoint?')) return; iv.splice(+b.dataset.x, 1); mark('interiorViews'); draw(); });
       mb.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { const x = iv[+b.dataset.h]; if (!AS360Showroom.openEditor) { toast('Hotspot editor not available.'); return; }
         AS360Showroom.openEditor({ vehicle: v, hotspots: (x.hotspots || []).map(h => Object.assign({}, h, { view: 'pano' })), exterior: [], interior: [], panorama: x.url, uploadPhoto: async file => (await AS360Media.uploadPhoto(file, id)).m, onDropPhoto: () => {}, onSave: async list => { x.hotspots = list.filter(h => h.view === 'pano'); mark('interiorViews'); try { await save(); } catch (e) {} draw(); } }); });
-      $('#if').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const lb = $('#il').value.trim() || 'Viewpoint ' + (iv.length + 1); const pr = prog('Uploading panorama'); try { pr.set(.3); const r = await AS360Media.uploadPano(f, id); iv.push({ id: 'p' + Date.now().toString(36), label: lb, url: r.url, hotspots: [] }); mark('interiorViews'); } catch (err) { toast(err.message); } pr.done(); draw(); };
+      const addPano = async f => { const lb = $('#il').value.trim() || 'Viewpoint ' + (iv.length + 1); const pr = prog('Uploading panorama'); try { pr.set(.3); const r = await AS360Media.uploadPano(f, id); iv.push({ id: 'p' + Date.now().toString(36), label: lb, url: r.url, hotspots: [] }); mark('interiorViews'); } catch (err) { toast(err.message); } pr.done(); draw(); };
+      $('#if').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) addPano(f); };
+      $('#pcap').onclick = () => { if (!window.AS360PanoCapture) { toast('Panorama capture is not available.'); return; } AS360PanoCapture.open({ onDone: f => addPano(f) }); };
       $('#sv').onclick = () => save().then(draw).catch(() => {});
     } else if (tab === 'docs') {
       const ds = v.docs = v.docs || [];

@@ -33,6 +33,8 @@ def main():
         print(("PASS  " if passed else "FAIL  ") + name + ("" if passed or not detail else f"\n        {detail}"))
         failed += not passed
     print(f"\n{len(results) - failed} passed, {failed} failed")
+    print("NOTE: every result above comes from a simulated environment (headless browser, fake camera, fake motion sensors, made-up scenes).")
+    print("      There are NO real-iPhone results in this run. What still needs a real phone: tests/REAL_DEVICE_CHECKLIST.md")
     if report:
         print("measurements:", json.dumps(report))
         json.dump(report, open(os.path.join(HERE, "last-report.json"), "w"), indent=1)
