@@ -11,9 +11,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AutoSpin360">
 <meta name="theme-color" content="#0a0b0d">
+<script>
+/* Start asking for this vehicle's details now, while the page's scripts are still downloading (they only ask once those have run). */
+(function () { try { var id = new URLSearchParams(location.search).get('id'); if (!id) return;
+  ['/api/vehicle?id=', '/api/background?id='].forEach(function (u) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = u + encodeURIComponent(id); document.head.appendChild(l); }); } catch (e) {} })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/viewer.css?v=spin2">
 <script src="/inv-core.js"></script>

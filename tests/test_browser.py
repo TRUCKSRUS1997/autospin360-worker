@@ -153,6 +153,13 @@ def run(base=None):
             ctx.close()
 
         if srv:     # these need the controllable test server
+            srv.hits.clear()                          # the early vehicle request must be reused, not repeated
+            ctx, pg = new_page("phone")
+            pg.goto(car_url, wait_until="networkidle")
+            pg.wait_for_timeout(800)
+            calls = [h for h in srv.hits if h.startswith("/api/vehicle?") or h.startswith("/api/background?")]
+            ok("loading: vehicle details are asked for once, not twice", len(calls) == 2, str(calls))
+            ctx.close()
             srv.fail.add("ext-5.jpg")                # one spin frame is broken
             ctx, pg = new_page("desktop")
             probe = Probe(pg, host)
