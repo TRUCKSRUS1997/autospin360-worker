@@ -15,3 +15,8 @@ Everything here is for development. None of it touches the live site.
 | `seed_preview.py` | Adds one generated test vehicle to the preview Worker (never production). |
 
 `run_all.py --base` refuses the production address.
+
+## Panorama capture: simulated vs real
+- `[simulated]` results (in `run_all.py`) use a fake camera, fake motion readings and made-up scenes: they prove the logic, not the iPhone.
+- `python tests/bench_stitch.py` times the stitcher on this computer (desktop numbers only).
+- `/pano-bench.html` is the same kind of timing but run **on the phone itself**; `tests/REAL_DEVICE_CHECKLIST.md` lists everything only a real iPhone can answer.
