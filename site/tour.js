@@ -67,6 +67,8 @@ function videos(host, v) {
   host.innerHTML = `<div class="tp"><h3>Videos</h3><div class="chips" role="group" aria-label="Video sections"></div><div class="vid"></div><div class="vbar"></div><p class="note">Real footage uploaded by the dealership. Video only downloads when you press play.</p></div>`;
   const chips = host.querySelector('.chips'), box = host.querySelector('.vid'), bar = host.querySelector('.vbar');
   let cur = -1, vid = null;
+  const onHide = () => { if (document.hidden && vid && !vid.paused) { try { vid.pause(); } catch (e) {} } };   // don't keep playing (and using data) in a hidden tab
+  document.addEventListener('visibilitychange', onHide);
   const release = () => { if (vid) { try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch (e) {} vid = null; } };
   function show(i) {
     release(); cur = i; const it = list[i];
@@ -89,7 +91,7 @@ function videos(host, v) {
   }
   list.forEach((it, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = it.label || SECTIONS[it.section] || 'Video'; b.setAttribute('aria-pressed', 'false'); b.addEventListener('click', () => show(i)); chips.appendChild(b); });
   show(0);
-  return { release, destroy() { release(); host.innerHTML = ''; } };
+  return { release, destroy() { release(); document.removeEventListener('visibilitychange', onHide); host.innerHTML = ''; } };
 }
 
 /* ---------------- lightbox with zoom / pan / pinch ---------------- */
@@ -113,6 +115,7 @@ function lightbox(items, start, title) {
     (it.pins || []).forEach((p, k) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pin'; b.textContent = k + 1; b.setAttribute('aria-label', p.title || 'Note'); b.style.left = '0'; b.style.top = '0'; b.dataset.k = k;
       b.addEventListener('click', e => { e.stopPropagation(); cap.querySelectorAll('.pn').forEach(n => n.remove()); cap.insertAdjacentHTML('beforeend', `<div class="pn"><b>${esc(p.title)}</b> ${esc(p.note)}</div>`); }); stage.appendChild(b); });
     img.onload = placePins; if (img.complete) placePins();
+    if (items.length > 1) [i + 1, i - 1].forEach(n => { const o = items[(n + items.length) % items.length], u = o && (o.m || o.f || o.t); if (u) new Image().src = u; });   // warm the next/previous photo so swiping is instant
   }
   function placePins() { const it = items[i], r = img.getBoundingClientRect(), s = stage.getBoundingClientRect(); stage.querySelectorAll('.pin').forEach(b => { const p = it.pins[+b.dataset.k]; b.style.left = (r.left - s.left + p.x * r.width) + 'px'; b.style.top = (r.top - s.top + p.y * r.height) + 'px'; }); }
   const _apply = apply; 
@@ -128,7 +131,8 @@ function lightbox(items, start, title) {
   stage.addEventListener('wheel', e => { e.preventDefault(); const r = stage.getBoundingClientRect(); setZ(z * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
   const close = () => { document.removeEventListener('keydown', key, true); root.remove(); document.documentElement.style.overflow = prevOv; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); if (opener && opener.focus) opener.focus(); };
   const opener = document.activeElement;
-  function key(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } else if (e.key === 'ArrowRight') show(i + 1); else if (e.key === 'ArrowLeft') show(i - 1); else if (e.key === '+' || e.key === '=') setZ(z * 1.25); else if (e.key === '-') setZ(z / 1.25); }
+  function key(e) { if (e.key === 'Tab') { const f = [...root.querySelectorAll('button:not([disabled])')].filter(b => b.offsetParent !== null); if (f.length) { const first = f[0], lastB = f[f.length - 1], at = document.activeElement; if (!root.contains(at)) { e.preventDefault(); first.focus(); } else if (e.shiftKey && at === first) { e.preventDefault(); lastB.focus(); } else if (!e.shiftKey && at === lastB) { e.preventDefault(); first.focus(); } } }
+    else if (e.key === 'Escape') { e.stopPropagation(); close(); } else if (e.key === 'ArrowRight') show(i + 1); else if (e.key === 'ArrowLeft') show(i - 1); else if (e.key === '+' || e.key === '=') setZ(z * 1.25); else if (e.key === '-') setZ(z / 1.25); }
   document.addEventListener('keydown', key, true);
   root.querySelector('.top').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a;
     if (a === 'close') close(); else if (a === 'prev') show(i - 1); else if (a === 'next') show(i + 1); else if (a === 'zin') setZ(z * 1.4); else if (a === 'zout') setZ(z / 1.4); else if (a === 'reset') setZ(1);
