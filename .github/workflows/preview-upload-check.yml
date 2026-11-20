@@ -1,0 +1,28 @@
+name: Preview upload check (temporary, manual)
+
+# TEMPORARY. Runs tests/check_preview_upload.py against the PREVIEW Worker only, using the preview environment's own secret.
+# It never deploys anything, never touches the production account, and does not print the password (GitHub masks it, and
+# the script never writes it out). Remove this file and its branch when the check has been run.
+on:
+  push:
+    branches: ["claude/preview-upload-check"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Panorama JPEG upload check (preview only)
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests==2.32.3 pillow==11.0.0
+      - name: Run the check against the preview
+        env:
+          PREVIEW_ADMIN_PASSWORD: ${{ secrets.PREVIEW_ADMIN_PASSWORD }}
+        run: python tests/check_preview_upload.py "https://autospin360-preview.isaaclenverbruggen.workers.dev"

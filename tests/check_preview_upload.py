@@ -32,6 +32,14 @@ def main():
     pw = os.environ.get("PREVIEW_ADMIN_PASSWORD")
     if not pw:
         sys.exit("PREVIEW_ADMIN_PASSWORD is not set.")
+    # the password is only sent to a Worker that says it is a preview (read-only GET first, no credentials)
+    try:
+        info = requests.get(f"{base}/deploy-info.json", timeout=30).json()
+    except Exception:
+        sys.exit("Refusing: could not read /deploy-info.json from that address, so it is not confirmed to be the preview.")
+    if info.get("preview") is not True:
+        sys.exit("Refusing: that address does not identify itself as a preview. No credentials were sent.")
+    print(f"target confirmed as a preview (commit {str(info.get('commit'))[:7]}); nothing is sent to production")
     s = requests.Session()
     r = s.post(f"{base}/api/auth", json={"username": "preview-admin", "password": pw}, timeout=30)
     if not r.ok:
