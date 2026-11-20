@@ -158,7 +158,14 @@ function mount(root, vehicle) {
   let api = null;                       // filled in at the end; showroom.js hooks onDoubleTap / onView
   const hasPano = typeof vehicle.panorama === 'string' && /^https?:/i.test(vehicle.panorama);
 
-  function loading(on, txt, frac) { el.loading.hidden = !on; if (txt) el.loadTxt.textContent = txt; el.loadBar.style.width = ((frac || 0) * 100) + '%'; }
+  let loadT = null;   // the loading cover fades away (0.25 s) instead of snapping off; "hidden" is set once the fade is done
+  function loading(on, txt, frac) {
+    clearTimeout(loadT);
+    if (on) { el.loading.classList.remove('out'); el.loading.hidden = false; }
+    else if (!el.loading.hidden && !reduced) { el.loading.classList.add('out'); loadT = setTimeout(() => { el.loading.hidden = true; el.loading.classList.remove('out'); }, 260); }
+    else el.loading.hidden = true;
+    if (txt) el.loadTxt.textContent = txt; el.loadBar.style.width = ((frac || 0) * 100) + '%';
+  }
   let msgT = null;
   function msg(t) { el.msg.textContent = t; el.msg.hidden = false; clearTimeout(msgT); msgT = setTimeout(() => el.msg.hidden = true, 5000); }
 

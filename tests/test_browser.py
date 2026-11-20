@@ -205,6 +205,19 @@ def run(base=None):
         ok("capture guide: no script errors", not probe.errors, "; ".join(probe.errors))
         ctx.close()
 
+        # viewer polish: the loading cover fades away and is fully gone (not left invisible on top) once the first picture shows
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        pg = ctx.new_page()
+        probe = Probe(pg, host)
+        pg.goto(car_url, wait_until="networkidle")
+        pg.wait_for_selector(".viewer-shell canvas", timeout=15000)
+        pg.wait_for_timeout(900)
+        st = pg.evaluate("""(() => { const l = document.querySelector('.viewer-shell .loading'); const cs = l && getComputedStyle(l);
+          return { exists: !!l, hidden: !l || l.hidden || cs.display === 'none', out: !!l && l.classList.contains('out') }; })()""")
+        ok("viewer polish: loading cover is gone after the first picture", st["hidden"] and not st["out"], str(st))
+        ok("viewer polish: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
+
         # wide-lens straightening: a curve drawn the way a 0.5x lens bends a straight line must come out straight
         ctx = browser.new_context(viewport={"width": 1280, "height": 800})
         pg = ctx.new_page()
