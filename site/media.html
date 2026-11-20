@@ -48,6 +48,7 @@
 <div id="toast" role="status"></div>
 <script src="/media-tools.js"></script>
 <script src="/pano-stitch.js"></script>
+<script src="/pano-archive.js"></script>
 <script src="/pano-capture.js"></script>
 <script src="/tour.js"></script>
 <script src="/showroom.js"></script>
@@ -160,7 +161,7 @@ function manage(id) {
         AS360Showroom.openEditor({ vehicle: v, hotspots: (x.hotspots || []).map(h => Object.assign({}, h, { view: 'pano' })), exterior: [], interior: [], panorama: x.url, uploadPhoto: async file => (await AS360Media.uploadPhoto(file, id)).m, onDropPhoto: () => {}, onSave: async list => { x.hotspots = list.filter(h => h.view === 'pano'); mark('interiorViews'); try { await save(); } catch (e) {} draw(); } }); });
       const addPano = async f => { const lb = $('#il').value.trim() || 'Viewpoint ' + (iv.length + 1); const pr = prog('Uploading panorama'); try { pr.set(.3); const r = await AS360Media.uploadPano(f, id); iv.push({ id: 'p' + Date.now().toString(36), label: lb, url: r.url, hotspots: [] }); mark('interiorViews'); } catch (err) { toast(err.message); } pr.done(); draw(); };
       $('#if').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) addPano(f); };
-      $('#pcap').onclick = () => { if (!window.AS360PanoCapture) { toast('Panorama capture is not available.'); return; } AS360PanoCapture.open({ onDone: f => addPano(f) }); };
+      $('#pcap').onclick = () => { if (!window.AS360PanoCapture) { toast('Panorama capture is not available.'); return; } AS360PanoCapture.open({ exportPrompt: true, onDone: (f, info) => { addPano(f); if (info && info.archive && !info.archive.kept) toast('Original photos were not kept: ' + (info.archive.reason || 'unknown reason') + '.'); } }); };
       $('#sv').onclick = () => save().then(draw).catch(() => {});
     } else if (tab === 'docs') {
       const ds = v.docs = v.docs || [];

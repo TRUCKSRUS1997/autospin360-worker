@@ -20,3 +20,10 @@ Everything here is for development. None of it touches the live site.
 - `[simulated]` results (in `run_all.py`) use a fake camera, fake motion readings and made-up scenes: they prove the logic, not the iPhone.
 - `python tests/bench_stitch.py` times the stitcher on this computer (desktop numbers only).
 - `/pano-bench.html` is the same kind of timing but run **on the phone itself**; `tests/REAL_DEVICE_CHECKLIST.md` lists everything only a real iPhone can answer.
+
+## Stage A: originals archive (added)
+- `test_archive.py` tests `site/pano-archive.js` on its own (write-once, checksums, quota errors, zip export read by Python's zipfile, damage detection, guarded delete).
+- `test_archive_capture.py` runs the capture screen with the archive on (full-size originals, disclosed fallbacks, storage-full choices, recovery after a reload, save-a-copy, switched off, backgrounding, camera stopped).
+- The older capture tests do not load the archive, so they still prove the original behaviour is unchanged.
+- `check_scope.py BASE` lists every changed file against the allowed list for Stage A and fails if anything else changed (server, worker, workflows, deploy scripts).
+- All of it is simulated. Real-iPhone items are in section F of `REAL_DEVICE_CHECKLIST.md`.

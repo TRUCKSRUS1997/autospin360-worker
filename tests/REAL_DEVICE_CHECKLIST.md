@@ -34,3 +34,15 @@ Exterior spin viewer, inventory page, the old "Add panorama file" button, photo 
 - On a real cabin capture, the review screen should say alignment is good or fair. If it says "NOT verified" or "poor", note the car and light conditions: that is the safety warning working, and the capture should be retaken with more overlap.
 - The "% covered" figure is now calculated after alignment, so it can be lower than before; compare it with the picture itself.
 - The speed test (/pano-bench.html) measures made-up-image stitching only, not camera capture, JPEG encoding or final image quality. Real captures take longer.
+
+## F. Stage A: original photos kept on the phone (needs a real iPhone; nothing here is proven by the simulated tests)
+Run on the PREVIEW address only. Use a test vehicle, never a customer vehicle record.
+1. **Delivered size.** At the top of the capture screen the green line says what size originals are kept at, e.g. "4032×3024 JPEG 95". Write it down. If it says 1920×1440 the camera did not give the larger size; if it says REDUCED, note the reason shown. (Safari's real behaviour is unknown until you look.)
+2. **One panorama, start to finish.** Note: number of photos kept, the MB shown in the "Saved originals" list, how long each photo takes to save (does the shutter feel slower?), whether the phone warms up, whether the page ever reloads by itself.
+3. **Storage.** After capture, reopen the capture screen: it lists the session with its size. Note the "free space" warning if one appeared. Does it say storage is persistent? (Safari may refuse; a refusal is a result, not a failure.)
+4. **Save a copy (the important one).** Tap "Prepare the file", then "Save or share", save to Files, then "Check the saved copy" and pick the file you saved. It must say Confirmed. Open the zip on a computer: the photos should open and look sharp. Note the zip size.
+5. **Interruption.** Start a capture, take about 10 photos, then (a) press the side button to lock the phone for 30 s, (b) switch to another app for a minute, (c) separately: force-quit Safari. After each, reopen the capture screen: is the unfinished session listed with the right photo count? Does "Recover into a panorama" work? (Continuing to capture after a recovery is NOT built; only recovery.)
+6. **Eviction (slow).** Leave a session on the phone, without saving a copy, for 8 days of normal use without opening this site. Is it still listed? This is how to find out whether Safari clears it. Do not rely on local storage for anything you can't re-shoot.
+7. **Storage full.** Only if you can: fill the phone to a few hundred MB free, start a capture. The "no more room" screen should appear with three choices.
+8. **Delete.** Delete one saved session from the list. It should ask, show the photo count and MB, and warn if no checked copy exists.
+9. **Panorama quality.** Compare a Stage A panorama with one from the previous version of the same car and seat: sharpness at 100% in the viewer, any colour or blocky artifacts.
