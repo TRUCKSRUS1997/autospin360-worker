@@ -324,7 +324,7 @@ function openGuidedCamera(opts) {
   const prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden';
   let video = null, stage = null, els = {};
   let recTimer = null;
-  const fit = { on: false, timer: null, bad: 0, good: 0, checks: 0, cut: 0 };
+  const fit = { on: false, timer: null, bad: 0, good: 0, checks: 0, cut: 0, log: [] };   // log: [seconds into the recording, 'cut'|'ok'] for the master recording's frame picking
 
   function showFit(on) { if (els.fit) els.fit.hidden = !on; }
   function startFitCheck() {
@@ -360,7 +360,7 @@ function openGuidedCamera(opts) {
       if (video && video.readyState >= 2 && !document.hidden) state = await checkFit(model, video, video.videoWidth, video.videoHeight);
     } catch (e) {}
     if (state && fit.on) {
-      if (st.recording) { fit.checks++; if (state === 'cut') fit.cut++; }
+      if (st.recording) { fit.checks++; if (state === 'cut') fit.cut++; if (fit.log.length < 2000) fit.log.push([(Date.now() - st.recStart) / 1000, state === 'cut' ? 'cut' : 'ok']); }
       // two readings in a row before changing the message, so it doesn't flicker
       if (state === 'cut') { fit.good = 0; if (++fit.bad >= 2) showFit(true); }
       else { fit.bad = 0; if (++fit.good >= 2) showFit(false); }
@@ -644,7 +644,7 @@ function openGuidedCamera(opts) {
     const mime = pickMime();
     try { st.recorder = mime ? new MediaRecorder(st.stream, { mimeType: mime }) : new MediaRecorder(st.stream); }
     catch (e) { msgError("This browser can't record video here."); return; }
-    st.chunks = []; st.grav = []; fit.checks = 0; fit.cut = 0;
+    st.chunks = []; st.grav = []; fit.checks = 0; fit.cut = 0; fit.log = [];
     st.recorder.ondataavailable = e => { if (e.data && e.data.size) st.chunks.push(e.data); };
     st.recorder.onstop = () => {
       const blob = new Blob(st.chunks, { type: st.recorder.mimeType || 'video/webm' });
@@ -733,6 +733,21 @@ function openGuidedCamera(opts) {
       if (!dur || !isFinite(dur) || dur < 3) throw new Error('too short');
       const N = frameCountFor(dur), start = dur * 0.03, end = dur * 0.97;
       const turn = frameTurn(vid.videoWidth, vid.videoHeight);
+      // Keep the complete original recording first. If keeping it fails the spin is still made, and the person is told.
+      let masterRec = null;
+      if (opts.onMaster) {
+        setProcessing('Keeping the original recording…');
+        try { masterRec = await opts.onMaster(blob, { seconds: dur, width: vid.videoWidth, height: vid.videoHeight, cutLog: fit.log.slice() }); }
+        catch (e) { if (opts.onError) opts.onError(new Error('The original recording could not be kept: ' + (e && e.message || 'unknown error'))); }
+      }
+      // Pick the sharpest, best-exposed moment for each position from the whole recording (falls back to even spacing).
+      let picks = null;
+      if (window.AS360Master && opts.pickBestFrames !== false) {
+        try {
+          picks = await AS360Master.selectFrames(vid, N, { cutLog: fit.log, isCancelled: () => st.ended, onProgress: (i, n) => setProcessing(`Choosing the best frames… ${i} of ${n}`) });
+          if (!picks || picks.length !== N) picks = null;
+        } catch (e) { picks = null; }
+      }
       const seekTo = t2 => new Promise(res => {
         const on = () => { vid.removeEventListener('seeked', on); res(); };
         vid.addEventListener('seeked', on); vid.currentTime = t2;
@@ -740,7 +755,7 @@ function openGuidedCamera(opts) {
       for (let i = 0; i < N; i++) {
         if (st.ended) { vid.remove(); URL.revokeObjectURL(url); return; }
         setProcessing(`Extracting frame ${i + 1} of ${N}…`);
-        const t2 = start + (end - start) * (N === 1 ? 0 : i / (N - 1));
+        const t2 = picks ? picks[i].t : start + (end - start) * (N === 1 ? 0 : i / (N - 1));
         await seekTo(t2);
         const vw = vid.videoWidth, vh = vid.videoHeight, k = Math.min(1, 1800 / Math.max(vw, vh));
         const dw = Math.round(vw * k), dh = Math.round(vh * k);
@@ -759,6 +774,10 @@ function openGuidedCamera(opts) {
         });
       }
       vid.remove(); URL.revokeObjectURL(url);
+      if (masterRec && window.AS360Master) {
+        const used = picks || Array.from({ length: N }, (_, i) => ({ slot: i, t: start + (end - start) * (N === 1 ? 0 : i / (N - 1)), source: 'recorded', alternates: [] }));
+        AS360Master.addDerivation(masterRec.id, { kind: 'spin', method: picks ? 'best-of-slot' : 'even-spacing', frames: used.map(f => ({ slot: f.slot, t: +f.t.toFixed(3), source: 'recorded', score: f.score == null ? null : +f.score.toFixed(1), alternates: (f.alternates || []).map(a => +a.t.toFixed(3)) })) }).catch(() => {});
+      }
       finish(true);
     } catch (e) {
       vid.remove(); URL.revokeObjectURL(url);

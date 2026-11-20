@@ -139,6 +139,7 @@
 </template>
 
 <script src="/home-btn.js"></script>
+<script src="/master-recording.js"></script>
 <script src="/guide.js"></script>
 <script src="/guide-plus.js"></script>
 <script src="/flow-addon.js"></script>
@@ -784,6 +785,7 @@ async function openEditor(id) {
   }
   renderExtGrid(); renderIntGrid();
   renderTypeChips();
+  if (window.AS360Master && vehicle.id) AS360Master.resumePending(vehicle.id, { onError: () => {} }).catch(() => {});   // finish any original-recording upload that was interrupted
   AdminBg.mount(overlay, { vehicleId: vehicle.id, getExterior: () => exterior, uploadBlob, deletePhoto, toast, ensureSaved: () => autoSave() });
   f('#typeChips').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (!b) return; bodyType = b.dataset.t; renderTypeChips(); });
   f('#guidedBtn').addEventListener('click', () => {
@@ -792,6 +794,7 @@ async function openEditor(id) {
       type: bodyType || 'suv',
       onType: t => { bodyType = t; renderTypeChips(); },
       onShot: blob => uploadBlob(vehicle.id, 'exterior', blob),
+      onMaster: (blob, meta) => AS360Master.preserve(blob, Object.assign({ vehicleId: vehicle.id }, meta), { onError: err => toast('Original recording not uploaded yet: ' + err.message), onWarning: w => toast(w) }),
       onDiscard: url => deletePhoto(url),
       onError: err => toast('A photo failed to upload: ' + err.message),
       onDone: (urls, type) => {
