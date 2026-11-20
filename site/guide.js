@@ -385,7 +385,8 @@ function openGuidedCamera(opts) {
 
   /* ----- setup screen ----- */
   const TIPS_EXT = [
-    'The camera opens on the <b>normal 1&times; lens</b>: stand back about <b>3&ndash;4 m</b> so the whole vehicle fits. That keeps it level in the spin. In a tight spot, tap <b>Lens</b> for the wide 0.5&times; lens (up close it makes the far end of the vehicle look raised).',
+    'The camera opens on the <b>normal 1&times; lens</b>: stand back about <b>3&ndash;4 m</b> so the whole vehicle fits. That keeps it level in the spin.',
+    '<b>Not much room?</b> Tap <b>Lens</b> on the camera screen for the wide <b>0.5&times;</b> lens and stand about <b>2&ndash;3 m</b> from the side of the vehicle (closer, 1&ndash;2 m, works for the front, rear and corner shots). Up close the wide lens makes any tilt show, so keep the phone <b>perfectly level</b> at headlight height and never aim it down &mdash; the camera screen coaches you.',
     'Hold your phone <b>sideways (landscape)</b>, at about <b>headlight height</b>, level and aimed straight ahead &mdash; this gives the smoothest, most level spin. There is also a manual Landscape button on the camera screen, in case your phone does not rotate automatically.',
     'Keep the vehicle <b>in the middle of the screen</b> and stand <b>far enough back that all of it fits</b> &mdash; both ends and the roof &mdash; then tap record and walk slowly all the way around with the vehicle on your <b>left</b>, keeping that same distance. If any part of it goes off the edge, a red <b>Step back</b> warning appears.',
     'Aim for about 40&ndash;60 seconds, a slow and steady lap. We automatically pull out enough frames from your video so the spin feels seamless when someone drags through it &mdash; no need to count photos.'
@@ -455,6 +456,7 @@ function openGuidedCamera(opts) {
     const can = st.facing === 'environment' && !!(st.wideId || st.zoomMin);
     els.lens.hidden = !can;
     const wide = lensIsWide();
+    root.dataset.lens = wide ? 'wide' : 'normal';      // lets the coaching helper (guide-plus.js) adapt to the 0.5× lens
     els.lens.textContent = wide ? 'Lens 0.5×' : 'Lens 1×';
     els.lens.setAttribute('aria-pressed', wide ? 'true' : 'false');
     els.lens.title = wide ? 'Using the wide 0.5× lens — tap for the normal 1× lens' : 'Using the normal 1× lens — tap for the wide 0.5× lens';
