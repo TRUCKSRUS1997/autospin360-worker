@@ -20,6 +20,24 @@ VIEWPORTS = {
 PAGES = ["/admin.html", "/appraisal.html", "/capture.html", "/media.html"]    # must load without script errors (signed out)
 
 
+FAKE_CAMERA = """
+(() => {
+  const cv = document.createElement('canvas'); cv.width = 640; cv.height = 360; const x = cv.getContext('2d');
+  setInterval(() => { x.fillStyle = '#345'; x.fillRect(0, 0, 640, 360); x.fillStyle = '#fff'; x.fillRect(100 + Math.random() * 300, 120, 80, 60); }, 60);
+  DeviceOrientationEvent.requestPermission = async () => 'granted';     // like an iPhone: motion access granted
+  const md = navigator.mediaDevices;
+  md.enumerateDevices = async () => [{ kind: 'videoinput', deviceId: 'wide1', label: 'Back Ultra Wide Camera' }, { kind: 'videoinput', deviceId: 'main1', label: 'Back Camera' }];
+  md.getUserMedia = async c => {
+    const s = cv.captureStream(15), t = s.getVideoTracks()[0];
+    const id = (c.video && c.video.deviceId && c.video.deviceId.exact) || 'main1';
+    t.getSettings = () => ({ deviceId: id, width: 640, height: 360 });
+    t.getCapabilities = () => ({});
+    return s;
+  };
+})();
+"""
+
+
 class Probe:
     """Collects script errors and failed requests for one page, ignoring other websites (fonts) since tests run offline."""
 
@@ -144,6 +162,41 @@ def run(base=None):
             ok("error handling: one broken frame does not crash the viewer", not crashed and pg.locator(".viewer-shell canvas").count() >= 1, "; ".join(crashed))
             ctx.close()
             srv.fail.clear()
+
+        # guided capture camera: the 0.5x (wide) lens mode. A fake camera stands in for the phone.
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+        pg = ctx.new_page()
+        probe = Probe(pg, host)
+        pg.add_init_script(FAKE_CAMERA)
+        pg.goto(base + "/admin.html", wait_until="networkidle")
+        pg.evaluate("AutoSpinGuide.openGuidedCamera({type: 'suv', onDone() {}})")
+        tips = pg.locator(".gc-tips").inner_text()
+        ok("capture guide: setup explains the 0.5x lens (stand 2-3 m, keep it level)", "0.5" in tips and "2\u20133 m" in tips and "level" in tips, tips[:120])
+        pg.click("#gcStart")
+        pg.wait_for_selector("#gcLens:not([hidden])", timeout=8000)
+        ok("capture guide: opens on the normal 1x lens", pg.get_attribute(".gc-overlay", "data-lens") == "normal")
+        # find a phone angle that is aimed down 3 degrees: fine on 1x (limit 4), too much on 0.5x (limit 2.5)
+        beta = pg.evaluate("""(() => { const ang = (screen.orientation && screen.orientation.angle) || 0; let best = null;
+            for (let b = 0; b <= 180; b += 0.1) { const a = GuidePlus.attitude(b, 0, ang); if (!a.flat && Math.abs(a.tilt) < 0.3 && Math.abs(a.aim + 3.2) < 0.15) { best = b; break; } }
+            return best; })()""")
+        ok("capture guide: test angle found", beta is not None)
+
+        def message():
+            pg.evaluate("(b => { for (let i = 0; i < 25; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', {beta: b, gamma: 0, alpha: 0})); })(%s)" % beta)
+            pg.wait_for_timeout(700)
+            return pg.locator(".gp-msg").inner_text()
+        if beta is not None:
+            m1 = message()
+            ok("capture guide: 1x lens tolerates a 3 degree aim", "Aiming down" not in m1, m1)
+            pg.click("#gcLens")
+            pg.wait_for_function("document.querySelector('.gc-overlay').dataset.lens === 'wide'", timeout=8000)
+            m2 = message()
+            ok("capture guide: 0.5x lens is stricter about aiming down", "Aiming down" in m2 and "wide lens" in m2, m2)
+            pg.click("#gcLens")
+            pg.wait_for_function("document.querySelector('.gc-overlay').dataset.lens === 'normal'", timeout=8000)
+            ok("capture guide: switching back to 1x relaxes the coaching", "Aiming down" not in message())
+        ok("capture guide: no script errors", not probe.errors, "; ".join(probe.errors))
+        ctx.close()
         browser.close()
     if srv:
         srv.stop()

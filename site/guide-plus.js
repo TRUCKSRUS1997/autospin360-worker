@@ -17,6 +17,7 @@
 // sits ~9° below straight ahead on the normal (1x) lens, i.e. the camera at about headlight height.
 const TOP = 0.27, BOTTOM = 0.72;
 const LEVEL_OK = 1.5, AIM_OK = 4;           // degrees
+const WIDE_LEVEL_OK = 1, WIDE_AIM_OK = 2.5;  // stricter on the 0.5x lens: up close, any tilt bends the vehicle in the spin
 const PACE = { slow: 5.5, fast: 11 };        // degrees a second: a steady 35-65 s lap
 const FIT = { tol: 0.045, minH: 0.32, maxH: 0.5 };
 
@@ -139,15 +140,17 @@ function advise() {
   const a = active; if (!a || !a.el) return;
   const m = a.el.querySelector('.gp-msg'); if (!m) return;
   const t = a.att, v = a.veh, ext = a.kind !== 'interior';
+  const wide = !!document.querySelector('.gc-overlay[data-lens="wide"]');   // set by guide.js while the 0.5x lens is on
+  const levelOk = wide ? WIDE_LEVEL_OK : LEVEL_OK, aimOk = wide ? WIDE_AIM_OK : AIM_OK;
   let msg = null, why = '', ok = false;
   if (a.portrait && ext) { msg = 'Turn the phone sideways'; why = 'Landscape gives the smoothest spin'; }
   else if (t && t.flat) msg = 'Hold the phone upright';
-  else if (t && Math.abs(t.tilt) > LEVEL_OK) { msg = `Tipped ${Math.abs(t.tilt).toFixed(1)}° — level the phone`; why = 'Line up the red line with the white one'; }
-  else if (t && t.aim < -AIM_OK) { msg = `Aiming down ${Math.round(-t.aim)}° — aim straight ahead`; why = 'Looking down makes the far end of the vehicle look raised'; }
-  else if (t && t.aim > AIM_OK) { msg = `Aiming up ${Math.round(t.aim)}° — aim straight ahead`; }
+  else if (t && Math.abs(t.tilt) > levelOk) { msg = `Tipped ${Math.abs(t.tilt).toFixed(1)}° — level the phone`; why = 'Line up the red line with the white one'; }
+  else if (t && t.aim < -aimOk) { msg = `Aiming down ${Math.round(-t.aim)}° — aim straight ahead`; why = wide ? 'On the wide lens, looking down makes the far end look raised' : 'Looking down makes the far end of the vehicle look raised'; }
+  else if (t && t.aim > aimOk) { msg = `Aiming up ${Math.round(t.aim)}° — aim straight ahead`; }
   else if (ext && v && v.fresh) {
     const h = v.bottom - v.top;
-    if (v.top < 0.02 || v.left < 0.015 || v.right > 0.985 || h > FIT.maxH) { msg = 'Step back'; why = 'Keep the whole vehicle inside the lines'; }
+    if (v.top < 0.02 || v.left < 0.015 || v.right > 0.985 || h > FIT.maxH) { msg = 'Step back'; why = wide ? 'Keep the whole vehicle inside the lines — about 2–3 m is enough on the 0.5× lens' : 'Keep the whole vehicle inside the lines'; }
     else if (h < FIT.minH) { msg = 'Step closer'; why = 'The vehicle should fill the space between the lines'; }
     else if (t && v.bottom > BOTTOM + FIT.tol) { msg = 'Lower the phone'; why = 'About headlight height — tyres up to the bottom line'; }
     else if (t && v.bottom < BOTTOM - FIT.tol) { msg = 'Raise the phone a little'; why = 'Tyres down to the bottom line'; }
@@ -155,13 +158,13 @@ function advise() {
   }
   if (!msg) {
     ok = !!(t || (ext && v && v.fresh));
-    msg = ok ? (ext && v && v.fresh ? 'Perfect — level, right height and distance' : 'Level ✓') : (ext ? 'Tyres on the bottom line, roof under the top' : 'Hold the phone level');
-    why = ok && ext ? 'Keep it like this all the way round' : '';
+    msg = ok ? (ext && v && v.fresh ? 'Perfect — level, right height and distance' : (wide ? 'Level ✓ — keep it just like this' : 'Level ✓')) : (ext ? 'Tyres on the bottom line, roof under the top' : 'Hold the phone level');
+    why = ok && ext ? (wide ? 'Keep it level all the way round — tilting bends the vehicle' : 'Keep it like this all the way round') : '';
   }
   m.innerHTML = msg + (why ? `<small>${why}</small>` : '');
   m.classList.toggle('ok', ok);
   const hz = a.el.querySelector('.gp-hz');
-  if (hz) hz.classList.toggle('ok', !!t && Math.abs(t.tilt) <= LEVEL_OK && Math.abs(t.aim) <= AIM_OK);
+  if (hz) hz.classList.toggle('ok', !!t && Math.abs(t.tilt) <= levelOk && Math.abs(t.aim) <= aimOk);
   const good = ext && v && v.fresh && Math.abs(v.bottom - BOTTOM) <= FIT.tol;
   a.el.querySelectorAll('.gp-line').forEach(l => l.classList.toggle('ok', !!good));
 }
