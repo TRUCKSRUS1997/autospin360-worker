@@ -122,7 +122,7 @@ def read_production(read_token):
         raise ds.Stop("Cloudflare production settings: compatibility_date had an unexpected structure")
     if ("compatibility_flags" in s
             and (not isinstance(s["compatibility_flags"], list)
-                 or any(not isinstance(flag, str) for flag in s["compatibility_flags"])):
+                 or any(not isinstance(flag, str) for flag in s["compatibility_flags"]))):
         raise ds.Stop("Cloudflare production settings: compatibility_flags had an unexpected structure")
     return parts, main, {k: s[k] for k in ("bindings", "compatibility_date", "compatibility_flags") if k in s}
 
