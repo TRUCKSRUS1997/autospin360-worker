@@ -316,15 +316,16 @@ def run():
         ("connection error on production probe", dp.requests.ConnectionError("simulated connection failure"), "prod"),
         ("timeout on production probe", dp.requests.Timeout("simulated timeout"), "prod"),
     ):
-        stopped = False
+        message = ""
         try:
             if stage == "own":
                 probe_with(own_ok, own_exception=exc)
             else:
                 probe_with(own_ok, prod_exception=exc)
-        except dp.requests.RequestException:
-            stopped = True
-        add(f"isolation probe: fails closed on {label}", stopped)
+        except ds.Stop as error:
+            message = str(error)
+        add(f"isolation probe: fails closed on {label}",
+            "before any preview write" in message and "no preview write was attempted" in message)
 
     for k, v in guard_env.items():
         os.environ.pop(k, None)
