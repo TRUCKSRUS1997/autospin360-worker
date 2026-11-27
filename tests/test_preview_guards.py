@@ -225,6 +225,16 @@ def run():
     finally:
         dp.requests.get = original_get
 
+    original_get = dp.requests.get
+    dp.requests.get = lambda *a, **k: (_ for _ in ()).throw(dp.requests.Timeout("simulated lookup timeout"))
+    try:
+        msg = prewrite_failure(lambda: dp.preview_url(PREVIEW_TOKEN, PREVIEW_ID))
+        add("request failures: post-write subdomain lookup reports possible prior changes",
+            "after preview writes" in msg and "may already have changed" in msg and
+            "Verify its state before retrying" in msg)
+    finally:
+        dp.requests.get = original_get
+
     for method, suffix in (("PUT", ""), ("POST", "/subdomain")):
         attempted = []
         original_request = dp.requests.request
