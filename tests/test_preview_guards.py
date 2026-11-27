@@ -162,6 +162,7 @@ def run():
     add("Cloudflare writes: accepts an explicit API success envelope", not stops(lambda: dp.api_success(FakeResp({"success": True, "result": {}}), "simulated write")))
 
     # --- isolation probe: fail closed on missing/empty tokens and ambiguous API responses
+    guard_env = {k: os.environ.pop(k, None) for k in ENV_KEYS}
     env(**{**good, "PREVIEW_CF_API_TOKEN": ""})
     add("credentials: stops if the preview token is empty", stops(lambda: dp.creds(True)))
     env(**{**good, "PREVIEW_CF_API_TOKEN": None})
@@ -234,6 +235,11 @@ def run():
         except dp.requests.RequestException:
             stopped = True
         add(f"isolation probe: fails closed on {label}", stopped)
+
+    for k, v in guard_env.items():
+        os.environ.pop(k, None)
+        if v is not None:
+            os.environ[k] = v
 
     # --- the files themselves
     wf = open(os.path.join(ROOT, ".github", "workflows", "preview.yml"), encoding="utf-8").read()
