@@ -83,9 +83,27 @@ def hdr(token):
     return {"Authorization": "Bearer " + token}
 
 
+def prewrite_get(url, stage, timeout):
+    """A failed read before the first preview write is safe to retry after checking the cause."""
+    try:
+        return requests.get(url, headers=None, timeout=timeout)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"{stage} request failed before any preview write ({type(exc).__name__}); "
+            "no preview write was attempted."
+        ) from None
+
+
 # ---------------------------------------------------------------- production: read-only (GET)
 def prod_get(read_token, suffix):
-    r = requests.get(f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts/{PROD_SCRIPT}{suffix}", headers=hdr(read_token), timeout=120)
+    url = f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts/{PROD_SCRIPT}{suffix}"
+    try:
+        r = requests.get(url, headers=hdr(read_token), timeout=120)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"read-only production request failed before any preview write ({type(exc).__name__}); "
+            "no preview write was attempted."
+        ) from None
     if not r.ok:
         raise ds.Stop(f"couldn't read the production Worker ({suffix or '/'}): HTTP {r.status_code}. Check the PROD_CODE_READ_TOKEN permissions.")
     return r
@@ -148,7 +166,14 @@ def api_success(response, action):
 
 def write(prev_token, acct, method, suffix="", **kw):
     """The only function that changes anything on Cloudflare: always the preview Worker in the preview account."""
-    r = requests.request(method, write_base(acct) + suffix, headers=hdr(prev_token), timeout=120, **kw)
+    try:
+        r = requests.request(method, write_base(acct) + suffix, headers=hdr(prev_token), timeout=120, **kw)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"Cloudflare preview {method} {suffix or '/'} request failed ({type(exc).__name__}); "
+            "the write outcome is unknown and Cloudflare may have applied the change. "
+            "Verify the preview Worker state before retrying."
+        ) from None
     if not r.ok:
         raise ds.Stop(f"Cloudflare {method} {suffix or '/'} failed: HTTP {r.status_code}")
     api_success(r, f"{method} {suffix or '/'}")
@@ -157,12 +182,24 @@ def write(prev_token, acct, method, suffix="", **kw):
 
 def probe_isolation(prev_token, preview_account):
     """Prove the preview token works in its own account, then require explicit denial in production."""
-    own = requests.get(f"{API}/accounts/{preview_account}/workers/scripts", headers=hdr(prev_token), timeout=60)
+    try:
+        own = requests.get(f"{API}/accounts/{preview_account}/workers/scripts", headers=hdr(prev_token), timeout=60)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"preview-account isolation check failed before any preview write ({type(exc).__name__}); "
+            "no preview write was attempted."
+        ) from None
     if not own.ok:
         raise ds.Stop(f"safety stop: preview token cannot list scripts in its own account (HTTP {own.status_code})")
     api_success(own, "preview-account access check")
 
-    r = requests.get(f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts", headers=hdr(prev_token), timeout=60)
+    try:
+        r = requests.get(f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts", headers=hdr(prev_token), timeout=60)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"production isolation probe failed before any preview write ({type(exc).__name__}); "
+            "no preview write was attempted."
+        ) from None
     if r.status_code != 403:
         raise ds.Stop(f"safety stop: expected explicit HTTP 403 when preview token probes production; received HTTP {r.status_code}")
     try:
@@ -236,7 +273,13 @@ def build_code(prod_code):
 
 
 def preview_url(prev_token, acct):
-    r = requests.get(f"{API}/accounts/{acct}/workers/subdomain", headers=hdr(prev_token), timeout=60)
+    try:
+        r = requests.get(f"{API}/accounts/{acct}/workers/subdomain", headers=hdr(prev_token), timeout=60)
+    except requests.RequestException as exc:
+        raise ds.Stop(
+            f"preview subdomain lookup failed after preview writes ({type(exc).__name__}); "
+            "the preview may already have changed. Verify its state before retrying."
+        ) from None
     if not r.ok:
         raise ds.Stop(f"couldn't read the preview account's workers.dev address: HTTP {r.status_code}")
     body = api_success(r, "read preview workers.dev subdomain")
@@ -288,7 +331,10 @@ def run(mode, bundle=None, assume=None):
         except (requests.RequestException, ValueError):
             pass
         time.sleep(6)
-    raise ds.Stop("the preview did not answer as expected")
+    raise ds.Stop(
+        "preview health check did not confirm the deployment; preview writes were already submitted "
+        "and the preview may have changed. Verify its state before retrying."
+    )
 
 
 def main():
