@@ -77,7 +77,12 @@ async function uploadPano(file, vehicleId) {
   if (r < 1.9 || r > 2.1) { if (bmp.close) bmp.close(); throw new Error('That photo is ' + bmp.width + '×' + bmp.height + ', not 2:1. A 360° panorama must be exactly twice as wide as it is tall.'); }
   const k = Math.min(1, 4096 / bmp.width), cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
   cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); if (bmp.close) bmp.close();
-  const b = await toBlob(cv, pickFormat(), 0.82); const j = await upload(b, vehicleId); return { url: j.url, bytes: b.size, existed: j.existed };
+  const b = await toBlob(cv, pickFormat(), 0.82); const j = await upload(b, vehicleId);
+  const ps = Math.min(1, 960 / cv.width), pc = document.createElement('canvas'); pc.width = Math.max(1, Math.round(cv.width * ps)); pc.height = Math.max(1, Math.round(cv.height * ps));
+  pc.getContext('2d').drawImage(cv, 0, 0, pc.width, pc.height);
+  let previewUrl = '';
+  try { const pb = await toBlob(pc, pickFormat(), 0.72); if (pb) previewUrl = (await upload(pb, vehicleId)).url; } catch (e) {}
+  return { url: j.url, previewUrl, bytes: b.size, existed: j.existed };
 }
 g.AS360Media = { uploadPano, prepareImage, uploadPhoto, uploadVideo, upload, posterFrom, format: pickFormat };
 })(window);
