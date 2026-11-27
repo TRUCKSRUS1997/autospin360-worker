@@ -79,10 +79,54 @@ def run():
     env(**good)
     add("credentials: accepts a valid set", not stops(lambda: dp.creds(True)))
 
+    # --- production settings envelope and structure
+    class InvalidSettingsJson(FakeResp):
+        def json(self):
+            raise ValueError("simulated invalid JSON")
+
+    def read_settings(settings_response):
+        previous = dp.prod_get
+        responses = iter((
+            FakeResp(text=FAKE_WORKER, headers={"content-type": "application/javascript"}),
+            settings_response,
+        ))
+        dp.prod_get = lambda token, suffix: next(responses)
+        try:
+            return dp.read_production("not-a-real-token")
+        finally:
+            dp.prod_get = previous
+
+    valid_settings = {"success": True, "result": {"bindings": PROD_BINDINGS}}
+    add("production settings: accepts a valid success envelope and bindings", not stops(lambda: read_settings(FakeResp(valid_settings))))
+    for label, response in (
+        ("invalid JSON", InvalidSettingsJson()),
+        ("non-object envelope", FakeResp(["not", "an", "object"])),
+        ("success false", FakeResp({"success": False, "result": {"bindings": PROD_BINDINGS}})),
+        ("missing success", FakeResp({"result": {"bindings": PROD_BINDINGS}})),
+        ("missing result", FakeResp({"success": True})),
+        ("non-object result", FakeResp({"success": True, "result": []})),
+        ("missing bindings", FakeResp({"success": True, "result": {}})),
+        ("non-list bindings", FakeResp({"success": True, "result": {"bindings": {}}})),
+        ("non-object binding", FakeResp({"success": True, "result": {"bindings": ["bad"]}})),
+        ("binding missing name", FakeResp({"success": True, "result": {"bindings": [{"type": "r2_bucket", "bucket_name": dp.PROD_BUCKET}]}})),
+        ("binding missing type", FakeResp({"success": True, "result": {"bindings": [{"name": "BUCKET", "bucket_name": dp.PROD_BUCKET}]}})),
+        ("non-string compatibility date", FakeResp({"success": True, "result": {"bindings": [], "compatibility_date": []}})),
+        ("invalid compatibility flags", FakeResp({"success": True, "result": {"bindings": [], "compatibility_flags": "nodejs_compat"}})),
+    ):
+        add(f"production settings: rejects {label}", stops(lambda response=response: read_settings(response)))
+    add("production settings: accepts omitted optional compatibility settings",
+        not stops(lambda: read_settings(FakeResp({"success": True, "result": {"bindings": []}}))))
+
     # --- bindings and guards
     b, notes = dp.preview_bindings(PROD_BINDINGS)
     names = {x["name"] for x in b}
     add("bindings: uses only the preview bucket", [x["bucket_name"] for x in b if x["type"] == "r2_bucket"] == [dp.PREVIEW_BUCKET])
+    wrong_bucket = [dict(x) for x in PROD_BINDINGS]
+    wrong_bucket[0]["bucket_name"] = "unexpected-source-bucket"
+    add("bindings: refuses an unexpected production source bucket", stops(lambda: dp.preview_bindings(wrong_bucket)))
+    missing_bucket = [dict(x) for x in PROD_BINDINGS]
+    missing_bucket[0].pop("bucket_name")
+    add("bindings: refuses a production R2 binding without bucket_name", stops(lambda: dp.preview_bindings(missing_bucket)))
     add("bindings: no production secret or key is carried over", not ({"SESSION_SECRET", "GH_WORKER_TOKEN", "BG_WORKER_KEY", "GEMINI_API_KEY", "IMPORT_KEY", "EXPORT_URL", "ADMIN_PASSWORD", "OWNER_PASSWORD"} & names), str(sorted(names)))
     add("bindings: dealer name is marked as test data", any(x["name"] == "DEALER_NAME" and "Preview" in x["text"] for x in b))
     add("guard: refuses the production bucket", stops(lambda: dp.check_guards(dp.PREVIEW_SCRIPT, [{"name": "BUCKET", "type": "r2_bucket", "bucket_name": "autospin360"}])))
@@ -105,7 +149,7 @@ def run():
         if f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts/{dp.PROD_SCRIPT}/content/v2" in url:
             return FakeResp(text=FAKE_WORKER, headers={"content-type": "application/javascript"})
         if f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts/{dp.PROD_SCRIPT}/settings" in url:
-            return FakeResp({"result": {"bindings": PROD_BINDINGS, "compatibility_date": "2025-01-01", "compatibility_flags": ["nodejs_compat"]}})
+            return FakeResp({"success": True, "result": {"bindings": PROD_BINDINGS, "compatibility_date": "2025-01-01", "compatibility_flags": ["nodejs_compat"]}})
         if url.endswith(f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts"):
             if can_see_prod["v"]:
                 return FakeResp({"success": True, "result": []})
