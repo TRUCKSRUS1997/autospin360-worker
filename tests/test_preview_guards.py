@@ -153,7 +153,7 @@ def run():
         if url.endswith(f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts"):
             if can_see_prod["v"]:
                 return FakeResp({"success": True, "result": []})
-            return FakeResp({"success": False, "errors": [{"code": 10000, "message": "permission denied"}]}, ok=False, status_code=403)
+            return FakeResp({"success": False, "errors": [{"code": 10000, "message": "Forbidden"}]}, ok=False, status_code=403)
         if url.endswith("/workers/subdomain"):
             return FakeResp({"success": True, "result": {"subdomain": "test-acct"}})
         if url.endswith("/deploy-info.json"):
@@ -287,7 +287,7 @@ def run():
     own_ok = FakeResp({"success": True, "result": []})
     # Every status other than an explicit, valid Cloudflare permission denial must stop.
     for status in (401, 404, 429, 500, 503):
-        denied = FakeResp({"success": False, "errors": [{"code": 10000, "message": "denied"}]},
+        denied = FakeResp({"success": False, "errors": [{"code": 10000, "message": "Forbidden"}]},
                           ok=False, status_code=status)
         stopped, _, _ = probe_with(own_ok, denied)
         add(f"isolation probe: rejects production HTTP {status}", stopped)
@@ -297,17 +297,19 @@ def run():
         ("success true", FakeResp({"success": True, "errors": [{"message": "ambiguous"}]}, ok=False, status_code=403)),
         ("missing errors", FakeResp({"success": False}, ok=False, status_code=403)),
         ("empty errors", FakeResp({"success": False, "errors": []}, ok=False, status_code=403)),
+        ("unrelated error code", FakeResp({"success": False, "errors": [{"code": 12345, "message": "Forbidden"}]}, ok=False, status_code=403)),
+        ("unrelated error message", FakeResp({"success": False, "errors": [{"code": 10000, "message": "Not found"}]}, ok=False, status_code=403)),
     ):
         stopped, _, _ = probe_with(own_ok, response)
         add(f"isolation probe: rejects HTTP 403 without genuine permission-denial envelope ({label})", stopped)
 
     stopped, calls_made, _ = probe_with(
         FakeResp({"success": False, "errors": [{"message": "API failure"}]}),
-        FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
+        FakeResp({"success": False, "errors": [{"message": "Forbidden"}]}, ok=False, status_code=403))
     add("isolation probe: rejects failed API envelope during preview-account access check", stopped and len(calls_made) == 1)
 
     stopped, calls_made, _ = probe_with(FakeResp(ok=False, status_code=403),
-                                     FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
+                                     FakeResp({"success": False, "errors": [{"message": "Forbidden"}]}, ok=False, status_code=403))
     add("isolation probe: rejects HTTP failure during preview-account access check", stopped and len(calls_made) == 1)
 
     for label, exc, stage in (
