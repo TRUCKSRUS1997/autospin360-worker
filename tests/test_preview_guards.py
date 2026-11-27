@@ -220,10 +220,10 @@ def run():
     add("isolation probe: rejects HTTP failure during preview-account access check", stopped and len(calls_made) == 1)
 
     for label, exc, stage in (
-        ("connection error on preview-account check", requests.ConnectionError("simulated connection failure"), "own"),
-        ("timeout on preview-account check", requests.Timeout("simulated timeout"), "own"),
-        ("connection error on production probe", requests.ConnectionError("simulated connection failure"), "prod"),
-        ("timeout on production probe", requests.Timeout("simulated timeout"), "prod"),
+        ("connection error on preview-account check", dp.requests.ConnectionError("simulated connection failure"), "own"),
+        ("timeout on preview-account check", dp.requests.Timeout("simulated timeout"), "own"),
+        ("connection error on production probe", dp.requests.ConnectionError("simulated connection failure"), "prod"),
+        ("timeout on production probe", dp.requests.Timeout("simulated timeout"), "prod"),
     ):
         stopped = False
         try:
@@ -231,7 +231,7 @@ def run():
                 probe_with(own_ok, own_exception=exc)
             else:
                 probe_with(own_ok, prod_exception=exc)
-        except requests.RequestException:
+        except dp.requests.RequestException:
             stopped = True
         add(f"isolation probe: fails closed on {label}", stopped)
 
