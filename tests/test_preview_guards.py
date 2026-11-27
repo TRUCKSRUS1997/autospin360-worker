@@ -278,9 +278,9 @@ def run():
         dp.requests.get = get
         try:
             dp.probe_isolation(PREVIEW_TOKEN, PREVIEW_ID)
-            return False, calls_before
-        except ds.Stop:
-            return True, calls_before
+            return False, calls_before, ""
+        except ds.Stop as error:
+            return True, calls_before, str(error)
         finally:
             dp.requests.get = previous
 
@@ -289,7 +289,7 @@ def run():
     for status in (401, 404, 429, 500, 503):
         denied = FakeResp({"success": False, "errors": [{"code": 10000, "message": "denied"}]},
                           ok=False, status_code=status)
-        stopped, _ = probe_with(own_ok, denied)
+        stopped, _, _ = probe_with(own_ok, denied)
         add(f"isolation probe: rejects production HTTP {status}", stopped)
     for label, response in (
         ("invalid JSON", InvalidJsonResp(ok=False, status_code=403)),
@@ -298,15 +298,15 @@ def run():
         ("missing errors", FakeResp({"success": False}, ok=False, status_code=403)),
         ("empty errors", FakeResp({"success": False, "errors": []}, ok=False, status_code=403)),
     ):
-        stopped, _ = probe_with(own_ok, response)
+        stopped, _, _ = probe_with(own_ok, response)
         add(f"isolation probe: rejects HTTP 403 without genuine permission-denial envelope ({label})", stopped)
 
-    stopped, calls_made = probe_with(
+    stopped, calls_made, _ = probe_with(
         FakeResp({"success": False, "errors": [{"message": "API failure"}]}),
         FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
     add("isolation probe: rejects failed API envelope during preview-account access check", stopped and len(calls_made) == 1)
 
-    stopped, calls_made = probe_with(FakeResp(ok=False, status_code=403),
+    stopped, calls_made, _ = probe_with(FakeResp(ok=False, status_code=403),
                                      FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
     add("isolation probe: rejects HTTP failure during preview-account access check", stopped and len(calls_made) == 1)
 
@@ -316,14 +316,10 @@ def run():
         ("connection error on production probe", dp.requests.ConnectionError("simulated connection failure"), "prod"),
         ("timeout on production probe", dp.requests.Timeout("simulated timeout"), "prod"),
     ):
-        message = ""
-        try:
-            if stage == "own":
-                probe_with(own_ok, own_exception=exc)
-            else:
-                probe_with(own_ok, prod_exception=exc)
-        except ds.Stop as error:
-            message = str(error)
+        if stage == "own":
+            stopped, _, message = probe_with(own_ok, own_exception=exc)
+        else:
+            stopped, _, message = probe_with(own_ok, prod_exception=exc)
         add(f"isolation probe: fails closed on {label}",
             "before any preview write" in message and "no preview write was attempted" in message)
 
