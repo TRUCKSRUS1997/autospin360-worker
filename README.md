@@ -48,3 +48,11 @@ publishes, checks the live site, and restores the backup by itself if a check fa
 `site/guide-plus.js` adds guide lines, a level, height/distance coaching and a pace check to the
 guided camera's walk-around recording (loaded on the dealer admin page after `guide.js`).
 
+
+**Testing and preview (Stage 0):** `tests/` holds the automated checks (see `tests/README.md`). Pushing a `stage-*` branch runs
+them in GitHub (*Test and preview*). Once the variable `PREVIEW_DEPLOY_READY` is `true`, the same run also publishes the branch to a
+`autospin360-preview` Worker in a **separate Cloudflare account** with its own empty bucket (`autospin360-preview-test`).
+Production is never written, and the production deploy token (`CF_API_TOKEN`) is never used for previews. Secrets live in the
+GitHub Environment `preview` (restricted to `stage-*` / `preview/*` branches):
+`PREVIEW_CF_API_TOKEN` and `PREVIEW_CF_ACCOUNT_ID` (the preview account), `PROD_CODE_READ_TOKEN` (a "Content Read-Only" token on the one production Worker,
+used only to download its server code), and optionally `PREVIEW_ADMIN_PASSWORD` / `PREVIEW_OWNER_PASSWORD` (new test-only passwords).

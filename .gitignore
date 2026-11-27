@@ -3,3 +3,6 @@ backup/
 *.enc
 *.tgz
 backup-before-restore/
+
+tests/last-report.json
+tests/__pycache__/
