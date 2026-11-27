@@ -31,8 +31,9 @@ ENV_KEYS = ("CF_API_TOKEN", "PROD_CODE_READ_TOKEN", "PREVIEW_CF_API_TOKEN", "PRE
 
 
 class FakeResp:
-    def __init__(self, body=None, ok=True, text="", headers=None):
-        self._b, self.ok, self.text, self.status_code = body or {}, ok, text, 200 if ok else 403
+    def __init__(self, body=None, ok=True, text="", headers=None, status_code=None):
+        self._b, self.ok, self.text = body or {}, ok, text
+        self.status_code = status_code if status_code is not None else (200 if ok else 403)
         self.headers, self.content = headers or {}, text.encode()
 
     def json(self):
@@ -95,18 +96,22 @@ def run():
 
     def fake_request(method, url, **kw):
         calls.append((method, url, auth_of(kw), kw))
-        return FakeResp()
+        return FakeResp({"success": True, "result": {}})
 
     def fake_get(url, **kw):
         calls.append(("GET", url, auth_of(kw), kw))
+        if url.endswith(f"/accounts/{PREVIEW_ID}/workers/scripts"):
+            return FakeResp({"success": True, "result": []})
         if f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts/{dp.PROD_SCRIPT}/content/v2" in url:
             return FakeResp(text=FAKE_WORKER, headers={"content-type": "application/javascript"})
         if f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts/{dp.PROD_SCRIPT}/settings" in url:
             return FakeResp({"result": {"bindings": PROD_BINDINGS, "compatibility_date": "2025-01-01", "compatibility_flags": ["nodejs_compat"]}})
         if url.endswith(f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts"):
-            return FakeResp({"result": []}, ok=can_see_prod["v"])
+            if can_see_prod["v"]:
+                return FakeResp({"success": True, "result": []})
+            return FakeResp({"success": False, "errors": [{"code": 10000, "message": "permission denied"}]}, ok=False, status_code=403)
         if url.endswith("/workers/subdomain"):
-            return FakeResp({"result": {"subdomain": "test-acct"}})
+            return FakeResp({"success": True, "result": {"subdomain": "test-acct"}})
         if url.endswith("/deploy-info.json"):
             return FakeResp(text=json.dumps({"preview": True}))
         return FakeResp()
@@ -131,6 +136,7 @@ def run():
         add("simulated run: the read-only token is only used for GET requests to production", all(c[0] == "GET" and f"/accounts/{dp.PROD_ACCOUNT}" in c[1] for c in calls if c[2] == READ_TOKEN) and any(c[2] == READ_TOKEN for c in calls))
         add("simulated run: the read-only token never reaches the preview account", not any(c[2] == READ_TOKEN and PREVIEW_ID in c[1] for c in calls))
         add("simulated run: the preview token touches production only for the GET isolation probe", all(c[0] == "GET" and c[1].endswith(f"/accounts/{dp.PROD_ACCOUNT}/workers/scripts") for c in prod_calls if c[2] == PREVIEW_TOKEN))
+        add("isolation probe: preview token first proves access to its own account", any(c[0] == "GET" and c[1].endswith(f"/accounts/{PREVIEW_ID}/workers/scripts") and c[2] == PREVIEW_TOKEN for c in calls))
         put = next(c for c in writes if c[0] == "PUT")
         meta = json.loads(put[3]["files"][0][1][1])
         add("simulated run: uploaded settings point at the preview bucket only", [x.get("bucket_name") for x in meta["bindings"] if x["type"] == "r2_bucket"] == [dp.PREVIEW_BUCKET])
@@ -145,6 +151,15 @@ def run():
             os.environ.pop(k, None)
             if v is not None:
                 os.environ[k] = v
+
+    # --- Cloudflare API envelope checks
+    class BadApiResp:
+        ok = True
+        status_code = 200
+        def json(self):
+            return {"success": False, "errors": [{"code": 10000, "message": "simulated API failure"}]}
+    add("Cloudflare writes: rejects HTTP 200 when API success is false", stops(lambda: dp.api_success(BadApiResp(), "simulated write")))
+    add("Cloudflare writes: accepts an explicit API success envelope", not stops(lambda: dp.api_success(FakeResp({"success": True, "result": {}}), "simulated write")))
 
     # --- the files themselves
     wf = open(os.path.join(ROOT, ".github", "workflows", "preview.yml"), encoding="utf-8").read()
