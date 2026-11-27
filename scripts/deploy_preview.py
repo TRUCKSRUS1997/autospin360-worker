@@ -100,7 +100,30 @@ def read_production(read_token):
         msg = email.parser.BytesParser(policy=email.policy.HTTP).parsebytes(b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + r.content)
         parts = {p.get_param("name", header="content-disposition"): p.get_payload(decode=True).decode("utf-8") for p in msg.iter_parts()}
         main = "worker.js" if "worker.js" in parts else next(iter(parts))
-    s = prod_get(read_token, "/settings").json()["result"]
+    response = prod_get(read_token, "/settings")
+    try:
+        body = response.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ds.Stop("Cloudflare production settings: response was not valid JSON")
+    if not isinstance(body, dict) or body.get("success") is not True:
+        raise ds.Stop("Cloudflare production settings: API did not report success")
+    s = body.get("result")
+    if not isinstance(s, dict):
+        raise ds.Stop("Cloudflare production settings: result was missing or had an unexpected structure")
+    bindings = s.get("bindings")
+    if not isinstance(bindings, list):
+        raise ds.Stop("Cloudflare production settings: bindings were missing or had an unexpected structure")
+    for binding in bindings:
+        if (not isinstance(binding, dict)
+                or not isinstance(binding.get("name"), str) or not binding["name"]
+                or not isinstance(binding.get("type"), str) or not binding["type"]):
+            raise ds.Stop("Cloudflare production settings: a binding had an unexpected structure")
+    if "compatibility_date" in s and not isinstance(s["compatibility_date"], str):
+        raise ds.Stop("Cloudflare production settings: compatibility_date had an unexpected structure")
+    if ("compatibility_flags" in s
+            and (not isinstance(s["compatibility_flags"], list)
+                 or any(not isinstance(flag, str) for flag in s["compatibility_flags"])):
+        raise ds.Stop("Cloudflare production settings: compatibility_flags had an unexpected structure")
     return parts, main, {k: s[k] for k in ("bindings", "compatibility_date", "compatibility_flags") if k in s}
 
 
@@ -156,6 +179,8 @@ def preview_bindings(prod_bindings):
     for b in prod_bindings:
         name, typ = b.get("name"), b.get("type")
         if typ == "r2_bucket":
+            if b.get("bucket_name") != PROD_BUCKET:
+                raise ds.Stop("safety stop: the production R2 binding does not point to the expected production bucket")
             nb = {k: v for k, v in b.items() if k in ("name", "type")}
             nb["bucket_name"] = PREVIEW_BUCKET
             out.append(nb)
