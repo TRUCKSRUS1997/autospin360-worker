@@ -165,7 +165,7 @@ function interior(host, v) {
   function show(i) {
     if (pano) { pano.destroy(); pano.root.remove(); pano = null; }
     chips.querySelectorAll('.chip').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
-    pano = g.AS360Showroom.Pano(box, list[i].url, {}); pano.setHotspots(list[i].hotspots || []);
+    pano = g.AS360Showroom.Pano(box, list[i].url, { previewUrl: (okUrl(list[i].previewUrl) ? list[i].previewUrl : ((v.interiorShots || []).find(okUrl) || '')) }); pano.setHotspots(list[i].hotspots || []);
   }
   list.forEach((it, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = it.label; b.addEventListener('click', () => show(i)); chips.appendChild(b); });
   show(0);
