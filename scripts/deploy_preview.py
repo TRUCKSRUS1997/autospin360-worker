@@ -100,7 +100,30 @@ def read_production(read_token):
         msg = email.parser.BytesParser(policy=email.policy.HTTP).parsebytes(b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + r.content)
         parts = {p.get_param("name", header="content-disposition"): p.get_payload(decode=True).decode("utf-8") for p in msg.iter_parts()}
         main = "worker.js" if "worker.js" in parts else next(iter(parts))
-    s = prod_get(read_token, "/settings").json()["result"]
+    response = prod_get(read_token, "/settings")
+    try:
+        body = response.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ds.Stop("Cloudflare production settings: response was not valid JSON")
+    if not isinstance(body, dict) or body.get("success") is not True:
+        raise ds.Stop("Cloudflare production settings: API did not report success")
+    s = body.get("result")
+    if not isinstance(s, dict):
+        raise ds.Stop("Cloudflare production settings: result was missing or had an unexpected structure")
+    bindings = s.get("bindings")
+    if not isinstance(bindings, list):
+        raise ds.Stop("Cloudflare production settings: bindings were missing or had an unexpected structure")
+    for binding in bindings:
+        if (not isinstance(binding, dict)
+                or not isinstance(binding.get("name"), str) or not binding["name"]
+                or not isinstance(binding.get("type"), str) or not binding["type"]):
+            raise ds.Stop("Cloudflare production settings: a binding had an unexpected structure")
+    if "compatibility_date" in s and not isinstance(s["compatibility_date"], str):
+        raise ds.Stop("Cloudflare production settings: compatibility_date had an unexpected structure")
+    if ("compatibility_flags" in s
+            and (not isinstance(s["compatibility_flags"], list)
+                 or any(not isinstance(flag, str) for flag in s["compatibility_flags"]))):
+        raise ds.Stop("Cloudflare production settings: compatibility_flags had an unexpected structure")
     return parts, main, {k: s[k] for k in ("bindings", "compatibility_date", "compatibility_flags") if k in s}
 
 
@@ -111,19 +134,43 @@ def write_base(acct):
     return f"{API}/accounts/{acct}/workers/scripts/{PREVIEW_SCRIPT}"
 
 
+def api_success(response, action):
+    """Require Cloudflare's JSON API envelope to report success, not merely an HTTP 2xx."""
+    try:
+        body = response.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ds.Stop(f"Cloudflare {action}: response was not valid JSON")
+    if not isinstance(body, dict) or body.get("success") is not True:
+        errors = body.get("errors", []) if isinstance(body, dict) else []
+        raise ds.Stop(f"Cloudflare {action}: API did not report success ({errors!r})")
+    return body
+
+
 def write(prev_token, acct, method, suffix="", **kw):
     """The only function that changes anything on Cloudflare: always the preview Worker in the preview account."""
     r = requests.request(method, write_base(acct) + suffix, headers=hdr(prev_token), timeout=120, **kw)
     if not r.ok:
-        raise ds.Stop(f"Cloudflare {method} {suffix or '/'} failed: {r.status_code} {r.text[:300]}")
+        raise ds.Stop(f"Cloudflare {method} {suffix or '/'} failed: HTTP {r.status_code}")
+    api_success(r, f"{method} {suffix or '/'}")
     return r
 
 
-def probe_isolation(prev_token):
-    """The preview token must NOT be able to see the production account. (GET only.)"""
+def probe_isolation(prev_token, preview_account):
+    """Prove the preview token works in its own account, then require explicit denial in production."""
+    own = requests.get(f"{API}/accounts/{preview_account}/workers/scripts", headers=hdr(prev_token), timeout=60)
+    if not own.ok:
+        raise ds.Stop(f"safety stop: preview token cannot list scripts in its own account (HTTP {own.status_code})")
+    api_success(own, "preview-account access check")
+
     r = requests.get(f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts", headers=hdr(prev_token), timeout=60)
-    if r.ok:
-        raise ds.Stop("safety stop: the preview token can see the production account. Create it in the separate preview account.")
+    if r.status_code != 403:
+        raise ds.Stop(f"safety stop: expected explicit HTTP 403 when preview token probes production; received HTTP {r.status_code}")
+    try:
+        body = r.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ds.Stop("safety stop: production access probe returned an unrecognised response")
+    if not isinstance(body, dict) or body.get("success") is not False or not body.get("errors"):
+        raise ds.Stop("safety stop: production access probe was not an explicit Cloudflare API permission denial")
 
 
 def preview_bindings(prod_bindings):
@@ -132,6 +179,8 @@ def preview_bindings(prod_bindings):
     for b in prod_bindings:
         name, typ = b.get("name"), b.get("type")
         if typ == "r2_bucket":
+            if b.get("bucket_name") != PROD_BUCKET:
+                raise ds.Stop("safety stop: the production R2 binding does not point to the expected production bucket")
             nb = {k: v for k, v in b.items() if k in ("name", "type")}
             nb["bucket_name"] = PREVIEW_BUCKET
             out.append(nb)
@@ -188,9 +237,12 @@ def build_code(prod_code):
 
 def preview_url(prev_token, acct):
     r = requests.get(f"{API}/accounts/{acct}/workers/subdomain", headers=hdr(prev_token), timeout=60)
-    sub = (r.json().get("result") or {}).get("subdomain") if r.ok else None
+    if not r.ok:
+        raise ds.Stop(f"couldn't read the preview account's workers.dev address: HTTP {r.status_code}")
+    body = api_success(r, "read preview workers.dev subdomain")
+    sub = (body.get("result") or {}).get("subdomain")
     if not sub:
-        raise ds.Stop("couldn't read the preview account's workers.dev address")
+        raise ds.Stop("Cloudflare returned no preview workers.dev subdomain")
     return f"https://{PREVIEW_SCRIPT}.{sub}.workers.dev"
 
 
@@ -211,8 +263,8 @@ def run(mode, bundle=None, assume=None):
     if mode == "plan":
         say("plan only: nothing was uploaded")
         return
-    probe_isolation(prev)
-    say("isolation check passed: the preview token cannot see the production account")
+    probe_isolation(prev, acct)
+    say("isolation check passed: preview token works in its own account and receives an explicit denial in production")
     meta = {"main_module": main, "bindings": bindings, "compatibility_date": settings.get("compatibility_date"),
             "compatibility_flags": settings.get("compatibility_flags") or []}
     meta = {k: v for k, v in meta.items() if v is not None}
