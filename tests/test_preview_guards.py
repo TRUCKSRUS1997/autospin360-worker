@@ -205,6 +205,42 @@ def run():
     add("Cloudflare writes: rejects HTTP 200 when API success is false", stops(lambda: dp.api_success(BadApiResp(), "simulated write")))
     add("Cloudflare writes: accepts an explicit API success envelope", not stops(lambda: dp.api_success(FakeResp({"success": True, "result": {}}), "simulated write")))
 
+    # --- request failures: pre-write failures are certain; write timeouts are explicitly uncertain
+    def prewrite_failure(fn):
+        try:
+            fn()
+            return ""
+        except ds.Stop as exc:
+            return str(exc)
+
+    original_get = dp.requests.get
+    dp.requests.get = lambda *a, **k: (_ for _ in ()).throw(dp.requests.Timeout("simulated read timeout"))
+    try:
+        msg = prewrite_failure(lambda: dp.prod_get(READ_TOKEN, "/settings"))
+        add("request failures: production read timeout stops before any preview write",
+            "before any preview write" in msg and "no preview write was attempted" in msg)
+        msg = prewrite_failure(lambda: dp.probe_isolation(PREVIEW_TOKEN, PREVIEW_ID))
+        add("request failures: isolation probe timeout stops before any preview write",
+            "before any preview write" in msg and "no preview write was attempted" in msg)
+    finally:
+        dp.requests.get = original_get
+
+    for method, suffix in (("PUT", ""), ("POST", "/subdomain")):
+        attempted = []
+        original_request = dp.requests.request
+        def timeout_request(m, url, **kw):
+            attempted.append(m)
+            raise dp.requests.Timeout("simulated write timeout")
+        dp.requests.request = timeout_request
+        try:
+            msg = prewrite_failure(lambda: dp.write(PREVIEW_TOKEN, PREVIEW_ID, method, suffix))
+            add(f"request failures: {method} timeout reports unknown write outcome",
+                "outcome is unknown" in msg and "may have applied" in msg and
+                "Verify the preview Worker state before retrying" in msg)
+            add(f"request failures: {method} timeout attempts only that write", attempted == [method])
+        finally:
+            dp.requests.request = original_request
+
     # --- isolation probe: fail closed on missing/empty tokens and ambiguous API responses
     guard_env = {k: os.environ.pop(k, None) for k in ENV_KEYS}
     env(**{**good, "PREVIEW_CF_API_TOKEN": ""})
