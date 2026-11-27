@@ -33,7 +33,12 @@ const CSS = `
 .sr-zoomed canvas.layer{cursor:grab}
 .sr-pano{position:absolute; inset:0; z-index:2; background:#0b0c0e; touch-action:none; cursor:grab; overflow:hidden}
 .sr-pano.dragging{cursor:grabbing}
-.sr-pano canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.sr-pano canvas{position:absolute; inset:0; z-index:2; width:100%; height:100%; display:block; visibility:hidden}
+.sr-pano.ready canvas{visibility:visible}
+.sr-pano .sr-preview{position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; display:block}
+.sr-pano.ready .sr-preview{display:none}
+.sr-pano .sr-err{z-index:4; inset:auto 12px 12px; display:flex; flex-direction:column; gap:10px; padding:12px; border-radius:12px; background:rgba(10,12,14,.88)}
+.sr-pano .sr-err button{min-height:44px; padding:0 16px; border:1px solid rgba(255,255,255,.2); border-radius:10px; background:var(--accent,#f2b705); color:var(--accent-ink,#1a1400); font:600 13px var(--font-body,system-ui); cursor:pointer}
 .sr-pano .sr-note{position:absolute; left:50%; top:76px; transform:translateX(-50%); padding:8px 14px; border-radius:999px; background:rgba(10,12,14,.72); color:#f4f2ee; font:500 13px var(--font-body,system-ui); pointer-events:none; transition:opacity .6s; white-space:nowrap}
 .sr-pano .sr-err{position:absolute; inset:0; display:grid; place-items:center; text-align:center; padding:24px; color:#cfd3d9; font:14px var(--font-body,system-ui)}
 .sr-pctl{position:absolute; z-index:5; right:16px; bottom:16px; display:flex; gap:8px}
@@ -113,6 +118,8 @@ function Pano(host, url, opts) {
   const root = document.createElement('div'); root.className = 'sr-pano'; root.tabIndex = 0;
   root.setAttribute('role', 'group'); root.setAttribute('aria-label', '360 degree cabin panorama. Drag, or use the arrow keys, to look around.');
   const cv = document.createElement('canvas'); root.appendChild(cv);
+  let preview = null;
+  if (okUrl(opts.previewUrl)) { preview = document.createElement('img'); preview.className = 'sr-preview'; preview.alt = ''; preview.decoding = 'async'; preview.src = opts.previewUrl; preview.addEventListener('error', () => { preview.remove(); preview = null; }, { once: true }); root.insertBefore(preview, cv); }
   const pins = document.createElement('div'); pins.className = 'sr-layer'; root.appendChild(pins);
   const note = document.createElement('div'); note.className = 'sr-note'; note.textContent = COARSE ? 'Drag to look around' : 'Drag to look around · scroll to zoom'; root.appendChild(note);
   host.appendChild(root);
@@ -120,7 +127,13 @@ function Pano(host, url, opts) {
   root.addEventListener('wheel', e => e.stopPropagation(), { passive: true }); root.addEventListener('keydown', e => e.stopPropagation());
   const T = { yaw: 0, pitch: 0, fov: 78, vy: 0, vp: 0, ready: false, dead: false, dirty: true, gyro: false };
   let gl = null, prog = null, tex = null, U = {}, raf = 0, hs = [], selId = null, g0 = null;
-  const fail = txt => { root.insertAdjacentHTML('beforeend', `<div class="sr-err" role="alert"><div>${esc(txt)}</div></div>`); if (opts.onError) opts.onError(txt); };
+  const fail = txt => {
+    root.querySelector('.sr-err')?.remove();
+    const box = document.createElement('div'); box.className = 'sr-err'; box.setAttribute('role', 'alert');
+    const msg = document.createElement('div'); msg.textContent = txt; box.appendChild(msg);
+    const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Retry panorama'; retry.addEventListener('click', () => { box.remove(); load(); }); box.appendChild(retry);
+    root.appendChild(box); if (opts.onError) opts.onError(txt);
+  };
   try { gl = cv.getContext('webgl', { antialias: false, alpha: false }) || cv.getContext('experimental-webgl'); } catch (e) { gl = null; }
   if (!gl) fail('This device can’t show the 360° panorama.');
 
@@ -140,9 +153,12 @@ function Pano(host, url, opts) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, src);
     gl.uniform1i(U.tex, 0);
-    T.ready = true; T.dirty = true; kick();
+    T.ready = true; root.classList.add('ready'); T.dirty = true; kick();
   }
+  let loading = false;
   async function load() {
+    if (loading || T.dead || !gl) { if (!gl && !T.dead) fail('This device can’t show the 360° panorama.'); return; }
+    loading = true;
     try {
       let bmp = null;
       try { const r = await fetch(url, { mode: 'cors' }); if (!r.ok) throw new Error('http'); bmp = await createImageBitmap(await r.blob()); }
@@ -151,8 +167,9 @@ function Pano(host, url, opts) {
       const ratio = bmp.width / bmp.height;
       if (ratio < 1.7 || ratio > 2.3) { fail('This photo isn’t an equirectangular (2:1) panorama, so it can’t be shown as a 360° view.'); return; }
       setup(bmp);
-      setTimeout(() => { note.style.opacity = 0; }, 3500);
+      setTimeout(() => { if (!T.dead) note.style.opacity = 0; }, 3500);
     } catch (e) { if (!T.dead) fail('The panorama couldn’t be loaded. Please try again.'); }
+    finally { loading = false; }
   }
   /* ----- camera math (shared by drawing, pins and click placement) ----- */
   const focal = () => 0.5 / Math.tan(T.fov * RAD * 0.5);
@@ -397,7 +414,7 @@ function attach(viewer, vehicle) {
   function enterPano() {
     if (!panoUrl || panoOn) return; panoOn = true; V.classList.add('sr-panoOn'); closePop(V); resetZoomNow();
     if (!pano) {
-      pano = Pano(V, panoUrl, { onTap: () => closePop(pano.root) });
+      pano = Pano(V, panoUrl, { previewUrl: (vehicle.interiorShots || []).find(okUrl) || '', onTap: () => closePop(pano.root) });
       pano.setHotspots(all);
       pctl = document.createElement('div'); pctl.className = 'sr-pctl';
       if (pano.canGyro() && COARSE) {
