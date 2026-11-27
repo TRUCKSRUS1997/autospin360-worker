@@ -161,6 +161,80 @@ def run():
     add("Cloudflare writes: rejects HTTP 200 when API success is false", stops(lambda: dp.api_success(BadApiResp(), "simulated write")))
     add("Cloudflare writes: accepts an explicit API success envelope", not stops(lambda: dp.api_success(FakeResp({"success": True, "result": {}}), "simulated write")))
 
+    # --- isolation probe: fail closed on missing/empty tokens and ambiguous API responses
+    env(**{**good, "PREVIEW_CF_API_TOKEN": ""})
+    add("credentials: stops if the preview token is empty", stops(lambda: dp.creds(True)))
+    env(**{**good, "PREVIEW_CF_API_TOKEN": None})
+    add("credentials: stops if the preview token is missing", stops(lambda: dp.creds(True)))
+    env(**good)
+
+    class InvalidJsonResp(FakeResp):
+        def json(self):
+            raise ValueError("simulated malformed JSON")
+
+    def probe_with(own_response, prod_response=None, own_exception=None, prod_exception=None):
+        calls_before = []
+        def get(url, **kw):
+            calls_before.append(url)
+            if url.endswith(f"/accounts/{PREVIEW_ID}/workers/scripts"):
+                if own_exception:
+                    raise own_exception
+                return own_response
+            if prod_exception:
+                raise prod_exception
+            return prod_response
+        previous = dp.requests.get
+        dp.requests.get = get
+        try:
+            dp.probe_isolation(PREVIEW_TOKEN, PREVIEW_ID)
+            return False, calls_before
+        except ds.Stop:
+            return True, calls_before
+        finally:
+            dp.requests.get = previous
+
+    own_ok = FakeResp({"success": True, "result": []})
+    # Every status other than an explicit, valid Cloudflare permission denial must stop.
+    for status in (401, 404, 429, 500, 503):
+        denied = FakeResp({"success": False, "errors": [{"code": 10000, "message": "denied"}]},
+                          ok=False, status_code=status)
+        stopped, _ = probe_with(own_ok, denied)
+        add(f"isolation probe: rejects production HTTP {status}", stopped)
+    for label, response in (
+        ("invalid JSON", InvalidJsonResp(ok=False, status_code=403)),
+        ("non-object JSON", FakeResp(["not", "an", "object"], ok=False, status_code=403)),
+        ("success true", FakeResp({"success": True, "errors": [{"message": "ambiguous"}]}, ok=False, status_code=403)),
+        ("missing errors", FakeResp({"success": False}, ok=False, status_code=403)),
+        ("empty errors", FakeResp({"success": False, "errors": []}, ok=False, status_code=403)),
+    ):
+        stopped, _ = probe_with(own_ok, response)
+        add(f"isolation probe: rejects HTTP 403 without genuine permission-denial envelope ({label})", stopped)
+
+    stopped, calls_made = probe_with(
+        FakeResp({"success": False, "errors": [{"message": "API failure"}]}),
+        FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
+    add("isolation probe: rejects failed API envelope during preview-account access check", stopped and len(calls_made) == 1)
+
+    stopped, calls_made = probe_with(FakeResp(ok=False, status_code=403),
+                                     FakeResp({"success": False, "errors": [{"message": "denied"}]}, ok=False, status_code=403))
+    add("isolation probe: rejects HTTP failure during preview-account access check", stopped and len(calls_made) == 1)
+
+    for label, exc, stage in (
+        ("connection error on preview-account check", requests.ConnectionError("simulated connection failure"), "own"),
+        ("timeout on preview-account check", requests.Timeout("simulated timeout"), "own"),
+        ("connection error on production probe", requests.ConnectionError("simulated connection failure"), "prod"),
+        ("timeout on production probe", requests.Timeout("simulated timeout"), "prod"),
+    ):
+        stopped = False
+        try:
+            if stage == "own":
+                probe_with(own_ok, own_exception=exc)
+            else:
+                probe_with(own_ok, prod_exception=exc)
+        except requests.RequestException:
+            stopped = True
+        add(f"isolation probe: fails closed on {label}", stopped)
+
     # --- the files themselves
     wf = open(os.path.join(ROOT, ".github", "workflows", "preview.yml"), encoding="utf-8").read()
     code = open(os.path.join(ROOT, "scripts", "deploy_preview.py"), encoding="utf-8").read()
