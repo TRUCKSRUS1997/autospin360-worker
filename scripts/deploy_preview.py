@@ -195,7 +195,19 @@ def probe_isolation(prev_token, preview_account):
         body = r.json()
     except (ValueError, json.JSONDecodeError):
         raise ds.Stop("safety stop: production access probe returned an unrecognised response")
-    if not isinstance(body, dict) or body.get("success") is not False or not body.get("errors"):
+    errors = body.get("errors") if isinstance(body, dict) else None
+    permission_denied = (
+        isinstance(body, dict)
+        and body.get("success") is False
+        and isinstance(errors, list)
+        and any(
+            isinstance(error, dict)
+            and error.get("code") == 10000
+            and error.get("message") == "Forbidden"
+            for error in errors
+        )
+    )
+    if not permission_denied:
         raise ds.Stop("safety stop: production access probe was not an explicit Cloudflare API permission denial")
 
 
