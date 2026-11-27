@@ -83,17 +83,6 @@ def hdr(token):
     return {"Authorization": "Bearer " + token}
 
 
-def prewrite_get(url, stage, timeout):
-    """A failed read before the first preview write is safe to retry after checking the cause."""
-    try:
-        return requests.get(url, headers=None, timeout=timeout)
-    except requests.RequestException as exc:
-        raise ds.Stop(
-            f"{stage} request failed before any preview write ({type(exc).__name__}); "
-            "no preview write was attempted."
-        ) from None
-
-
 # ---------------------------------------------------------------- production: read-only (GET)
 def prod_get(read_token, suffix):
     url = f"{API}/accounts/{PROD_ACCOUNT}/workers/scripts/{PROD_SCRIPT}{suffix}"
